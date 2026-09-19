@@ -159,7 +159,7 @@ Base `4px`: `4 · 8 · 12 · 16 · 20 · 24 · 32 · 56 · 72`. Hero `padding 72
 | **Success** | `#0E9F6E` | `#FFFFFF` | `#0E9F6E` | `#ECFDF3` / `#0E9F6E` |
 | **Error** | `#D92D20` | `#FFFFFF` | `#D92D20` | `#FEF3F2` / `#D92D20` |
 
-**Wave rule (`getWaveColors`):** luminance `< 150` → white wave + ocean text; else ocean wave + white text. Wave = `::before` ellipse rising from bottom, `0.36s cubic-bezier(.32,.72,.32,1)`, text/border swap delayed `0.2s`. **Solid fills only — no gradients on buttons.** `min-height 44px`, `padding 14px 28px`, pill `9999px`, focus-visible `2px accent offset 2`, disabled `.5`.
+**Wave rule (`getWaveColors`):** luminance `< 150` → white wave + ocean text; else ocean wave + white text. Wave = `::before` ellipse rising from bottom, `0.36s cubic-bezier(.32,.72,.32,1)`, text/border swap delayed `0.2s`. **Solid fills only — no gradients on buttons.** `min-height 44px`, `padding 14px 28px`, pill `9999px`, focus-visible `2px accent offset 2`. Disabled + loading share one explicit face (ink `#0A2540` on `#DCE8EE`, ≈12:1 — never `opacity`, which destroys contrast) with no hover effect; see `components/button.md` §1–§2 for the full per-type spec.
 
 ### 7.2 Hero Section (`components/sections/HeroSection.tsx`)
 
