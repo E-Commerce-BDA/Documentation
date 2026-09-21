@@ -4,6 +4,7 @@
 > Status: Draft | Last Updated: 2026-08-21
 > Parent: `docs/0.Project-Overview.md` | `docs/5.Features.md` §A1 | `docs/6.Admin-Panel.md` §3.7/§4/§5/§6
 > Route: `frontend/storefront/app/(shop)/page.tsx` | CMS `pageKey=homepage`
+> Routing authority: `pages/routing.md` (route map, headers, query/SEO rules)
 
 ---
 
