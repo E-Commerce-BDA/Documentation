@@ -34,10 +34,10 @@ Auth rule (from Features A11): unauthenticated `/account` or `/checkout`
 |---|---|---|---|
 | Listing, account, cart, checkout, compare, blog index | ✅ | ❌ | top-level — `Home / Cart` trails are noise |
 | PDP, blog article | ✅ (product/post name) | ✅ (`Home / Shoes / Running X`) | deep pages need an upward escape path |
-| Auth | ❌ centered card | ❌ | conversion focus, minimal chrome |
+| Auth | configurable centered/split, no H1 (see `pages/auth-design.md`) | ❌ | conversion focus, minimal chrome |
 | Home | ❌ (hero is the header) | ❌ | |
 
-## 3. Query rules — path = identity, query = ephemeral view state
+## 3. Query rules — path = identity, query = short-lived data representing the current condition of a UI (Ephemeral View State)
 
 **Allowed in query:** filters/sort (`?category=&sort=`), search `?q=`,
 compare `?ids=`, pagination cursor, `?preview=1`, auth `?next=`, PDP
@@ -45,7 +45,7 @@ variant keys (§4).
 **Banned from query:** quantity, form contents, tokens, PII/secrets
 (anything that leaks via history, logs, or referers).
 
-## 4. PDP variant URLs (locked decision)
+## 4. PDP variant URLs
 
 * Format `/products/[slug]?color=&size=` — slugs (never ids), fixed key
   order (`color` before `size`; order variants are duplicate URLs).

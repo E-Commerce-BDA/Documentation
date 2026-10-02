@@ -34,7 +34,7 @@ at `2.5px` stroke — legibility floor at ~12px boxes.
 | color | inherited | parent text | admin recolors via parent `style={{ color }}` — no icon-level knob |
 
 `strokeWidth` is fixed at 2 by design decision (not exposed) to keep the
-set optically uniform. `name` accepts the 26 mapped keys (`ICON_NAMES`);
+set optically uniform. `name` accepts the 27 mapped keys (`ICON_NAMES`);
 unknown CMS-driven strings fail closed (render nothing + dev warning).
 
 ## 3. How to change (scopes)
@@ -56,12 +56,14 @@ change the parent's color once and every icon inside follows.
 4. **No hex in icon code** (follows the global rule — `currentColor` only,
    `tickColor`-style props pass through `style`, never into paths).
 
-## 5. Set (26, grouped by surface)
+## 5. Set (27, grouped by surface)
 
 Navbar/actions: `search, shopping-bag, user, menu, x` · Navigation:
 `arrow-left/right/up/down, chevron-left/right/up/down` · Commerce:
 `heart (+filled), store, star (+filled), truck, shield-check, returns,
-share, eye` · Forms/editing: `check, minus, plus, trash, filter`.
+share, eye` · Forms/editing: `check, minus, plus, trash, filter, eye-off`
+(`eye-off` added for the auth password toggle — visibility state must be
+perceivable; same-stroke sibling of `eye`).
 
 Deferred: payment-brand and social logos (own fill rules + legal
 constraints — separate decision when needed).
