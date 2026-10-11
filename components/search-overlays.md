@@ -64,3 +64,14 @@ Admin customization strengthens this model: knobs are JSON/vars, not code, so cu
 - **Oceanic arrival for takeovers** (sf-018/023): full-screen = fade + small rise; sheet = pure slide, zero opacity by variant decision.
 - **Per-visit recent memory, never `localStorage`** (locked): tokens and history stay out of JS persistence.
 - **Inspect removed, not fixed** (sf-022): photo mismatch at the concept level — forward deletion over revert, history preserved as record.
+
+## 7. Service ports (swap map — microservice coupling without rewrites)
+
+| Need | Port (`lib/`) | Demo today | Real service later | Owner |
+|---|---|---|---|---|
+| Ranked suggest | `search/source.ts` `SearchSource` | `demoSource.ts` (+ `DEMO_CATALOG`, `DEMO_TRENDING`) | search-svc | `useSearch` |
+| Trending terms | `search/trending.ts` `TrendingSource` | `DEMO_TRENDING` | search-svc / CMS | palette (prop) |
+| Quick add | `cart/quickAdd.ts` `QuickAddPort` | `createDemoQuickAdd` (120ms, always ok) | cart-svc | `useQuickAdd` |
+| Recent terms | *No port* — visit memory only | `useRecentSearches` | — (ban forbids persistence) | palette (props) |
+
+**Swap rule:** one line at the call site (hook construction / showcase wiring). Contract tests stub the port, never the network — proven before the backend exists. Demo files are throwaway-by-replacement: the service replaces the file, callers never change. Shared interactive faces converge on `pill.md` (one Pill, all variants); shared tag faces converge on the `tagTone` lib map.
