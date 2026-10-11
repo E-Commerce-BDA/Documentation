@@ -18,6 +18,18 @@ Every settings slice appends its rows here same-commit, or the slice isn't done.
 | Toast (`toast.md`) | `open/title/message/icon/onClose` | Props only | — (no knobs by design) |
 | Badge | `tone` (success/warning/error/sale/info/neutral/lilac) | Prop | `neutral` (tones fixed) |
 
+Button (`button.md`, sf-030 — highest-reuse primitive first):
+
+| Knob | Type | Default |
+|---|---|---|
+| `variant` | `primary/light/ghost-ink/sale/success/error` | `primary` |
+| `size` | `sm/md/lg` (36/44/52px) | `md` |
+| `bg / textColor / borderColor / borderRadius` | CMS colors + 0–24 | theme (8px radius) |
+| `hoverBorderColor / waveBg` | CMS colors | theme |
+| `animation` (`ButtonAnimationField`) | enabled/useWave/waveOrigin/peaks/peakHeight/animationKind/durationMs/easing | wave bottom 2-peak, 360ms |
+| `disabledBg / disabledTextColor / disabledBorderColor / disabledBorderWidth / disabledHoverEnabled` | flat (win over `animation.disabled`) | explicit solids |
+| `loading` | boolean (spinner face) | false |
+
 ## Search overlays (nested `search.*` groups, resolved per-key)
 
 Sheet (`sheetAnimation` only + flat `placeholder`/`dept` props):
