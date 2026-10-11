@@ -26,7 +26,7 @@ Renders a native `<button>` and forwards `className`/`aria-pressed`/handlers, so
 
 ## 4. Global rules (apply-to-all)
 
-- State reaches CSS only through `data-variant`/`data-active`/`data-state` — never class toggles.
+- State reaches CSS only through `data-pill`/`data-active`/`data-state` — never class toggles. (`data-variant` is banned repo-wide by the wave-park guard — one shared wave rule.)
 - `:hover` stays off the active face and off `[disabled]` (bare `:hover` matches both; repainting active ink-on-ink or dimming disabled destroys the face).
 - Disabled faces are explicit solids (contrast ban on `opacity`), focus-visible ring fixed.
 - No transitions: instant state swap, nothing for reduced-motion to kill.
