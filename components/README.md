@@ -14,6 +14,7 @@
 | Icons (26, lucide wrapper) | `icons.md` | ✅ done |
 | Tooltip (+style knobs) | `tooltip.md` | ✅ done |
 | Pill (filter/chip/action interactive pill) | `pill.md` | ✅ done |
+| Toast (bottom-center notification) | `toast.md` | ✅ done |
 | Search overlays (variant matrix + selection + registry) | `search-overlays.md` | ✅ done |
 | Input / Textarea / Select | `input.md` *(to create)* | ⬜ |
 | Checkbox / Radio / Toggle / Slider | `form-controls.md` *(to create, grouped)* | ⬜ |
