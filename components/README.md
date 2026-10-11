@@ -22,7 +22,7 @@
 | SearchAutocomplete / CheckoutSteps | `commerce.md` *(to create, grouped)* | ⬜ |
 | ProductCard / Gallery / VariantSelector | `product.md` *(to create, grouped)* | ⬜ |
 | HeroSection / BannerSection / FeaturedProducts / CategoryShowcase / BrandStrip / BlogTeaser | `sections.md` *(to create, grouped)* | ⬜ |
-| CartLineItem / MiniCartDrawer / Announcement / Navbar / Footer | `shell-cart.md` *(to create, grouped)* | ⬜ |
+| Shell purpose + mount rule + search overlays; cart blocks at cart slice | `shell-cart.md` | ✅ done (shell half; cart to-come §4) |
 
 Small related components share one grouped doc (see §3 rule 4); Button,
 Icons, and Tooltip earned standalone docs as system pioneers (first model,
