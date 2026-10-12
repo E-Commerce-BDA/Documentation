@@ -63,6 +63,19 @@ Toggle (`theme.toggle`, sf-031 — flat `onColor/offColor/knobColor/width/height
 | `width / height` | 32–64 / 20–32px | 44 / 24 |
 | `onColor / offColor / knobColor` | colors ("" = accent/border tokens) | "" / "" / `#FFFFFF` |
 
+Select (`theme.select`, sf-033 — `variant` branch + native extension):
+
+| Knob | Applies to | Type | Default |
+|---|---|---|---|
+| `variant` | both (branch) | `native` / `custom` | `native` |
+| `bg / textColor / borderColor / focusBorderColor / borderRadius` | both (button face) | colors + 0–24 | "" / "" / "" / "" / 10 |
+| `arrowPadding` | both (arrow offset) | 4–24px | 12 |
+| `arrowIconUrl` | both (upload; glyph fallback) | URL string | "" (chevron) |
+| `selectedBg / selectedText` | **custom only** (OS chrome law) | colors | "" (accent-50 / ink tokens) |
+| `hoverBg / hoverText` | **custom only** | colors | "" (section-bg / ink tokens) |
+| `optionPaddingY` | **custom only** | 4–16px | 8 |
+| `dropdownAnimation` | **custom only** | motion instance (any preset + custom + off) | fast fade 180ms |
+
 ## Search overlays (nested `search.*` groups, resolved per-key)
 
 Sheet (`sheetAnimation` only + flat `placeholder`/`dept` props):
