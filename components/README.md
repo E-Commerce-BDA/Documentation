@@ -23,7 +23,7 @@
 | Tabs / Skeleton / Pagination / Breadcrumbs / Accordion | `navigation.md` *(to create, grouped)* | ⬜ |
 | Rating / Price / QuantityStepper / Toast / Table / EmptyState | `commerce.md` *(to create, grouped)* | ⬜ |
 | SearchAutocomplete / CheckoutSteps | `commerce.md` *(to create, grouped)* | ⬜ |
-| ProductCard / Gallery / VariantSelector | `product.md` *(to create, grouped)* | ⬜ |
+| ProductCard / Gallery / VariantSelector | `product.md` | ✅ done (card §1–10; gallery/variants stubbed §11) |
 | HeroSection / BannerSection / FeaturedProducts / CategoryShowcase / BrandStrip / BlogTeaser | `sections.md` *(to create, grouped)* | ⬜ |
 | Shell purpose + mount rule + search overlays; cart blocks at cart slice | `shell-cart.md` | ✅ done (shell half; cart to-come §4) |
 
