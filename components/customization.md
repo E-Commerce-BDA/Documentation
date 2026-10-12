@@ -76,6 +76,12 @@ Select (`theme.select`, sf-033 — `variant` branch + native extension):
 | `optionPaddingY` | **custom only** | 4–16px | 8 |
 | `dropdownAnimation` | **custom only** | motion instance (any preset + custom + off) | fast fade 180ms |
 
+Data pattern (sf-035 — third `useSearch` instance): `lib/select/options.ts`
+`OptionsSource.list(signal)` port → `lib/select/demoOptions.ts` demo
+(8 countries, 150ms) → `app/hooks/useSelectOptions.ts` (`options/status/
+reload`, mount-load, stale-kill) → §9 async + themed demos (own hook
+instances; CMS/service swaps one line).
+
 ## Search overlays (nested `search.*` groups, resolved per-key)
 
 Sheet (`sheetAnimation` only + flat `placeholder`/`dept` props):
