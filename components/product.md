@@ -14,7 +14,9 @@ Media ratios (union, default `4:5` — editorial precedent): `3:4 / 4:3 / 4:5 / 
 
 ## 2. Media (cover + hover swap)
 
-`image` + optional `hoverImage` (admin sets both): hover crossfades cover→hover in 160ms (reduced-motion: instant swap, no fade). Absent hover = static cover. `loading="lazy"`, placeholder image-bg, `alt=""` — the card's open control already announces name+price (palette-row pattern, no double-announce).
+`image` + optional `hoverImage` (admin picks which is cover, which is hover — both settable independently): hover transitions cover→hover per `swapAnimation` (admin picks from the set below; default `fade` 160ms; reduced-motion always instant-swap, no transition). Absent hover = static cover. `loading="lazy"`, placeholder image-bg, `alt=""` — the card's open control already announces name+price (palette-row pattern, no double-announce).
+
+Swap animation set (`swapAnimation` + `swapDurationMs` 0–500): `fade` (crossfade) / `slide` (hover slides in over cover) / `zoom` (hover scales 1.06→1.0 over cover) / `none` (instant swap). Preset→concrete in the resolver (motion-shape precedent); CSS reads vars, keyframes per member.
 
 ## 3. Badge (tag → face + position)
 
@@ -26,7 +28,7 @@ Name (2-line clamp, `nameSize`), price + optional `compareAt` strikethrough with
 
 ## 5. Hover layer (admin picks ONE)
 
-`hoverMode: "image" | "actions"` (default `actions`): image-swap (see §2) vs CTA bar with **max 3** of `quick-view / wishlist / add-to-cart / share` (`ctaSet` array, order = display order). CTA position `left / center / right` (default center); icons from the Icon set (glyph-only v1 — upload deferred with reason: icon-color theming breaks on arbitrary uploads). `onQuickView / onWishlist / onQuickAdd / onShare` callbacks (owner-owned; share falls back to clipboard when `navigator.share` is absent).
+`hoverMode: "none" | "image" | "actions"` (default `actions`): `none` renders a fully static card (no layer, no swap, no transition — nothing to kill under reduced-motion); `image` swaps per §2; `actions` shows the CTA bar with **max 3** of `quick-view / wishlist / add-to-cart / share` (`ctaSet` array, order = display order). CTA position `left / center / right` (default center); icons from the Icon set (glyph-only v1 — upload deferred with reason: icon-color theming breaks on arbitrary uploads). `onQuickView / onWishlist / onQuickAdd / onShare` callbacks (owner-owned; share falls back to clipboard when `navigator.share` is absent).
 
 ## 6. Stock + wishlist states
 
@@ -44,7 +46,7 @@ Touch: hover layer is hover-only; on `(hover: none)` actions hide unless `showAc
 
 ## 9. Theme group sketch (`theme.productCard` — build task wires)
 
-`cardBg / borderColor / borderRadius` 0–24, `mediaRatio` union, `badgePosition`, `showBadge/Ratings/Dept`, `hoverMode`, `ctaSet` (max 3) + `ctaPosition`, `showActionsOnTouch`, `nameSize / priceSize`, listing columns desktop 3/4/5 – tablet 2/3 (**cap 3** — 4-up below 1024px squeezes cards under ~220px and thumb + two text lines stop being legible) – phone 1/2, `cardWidth / cardHeight` caps (listing-level, clamped). Resolver: same nested-merge + clean/clamp/union discipline. Matrix records rows same-commit.
+`cardBg / borderColor / borderRadius` 0–24, `mediaRatio` union, `badgePosition`, `showBadge/Ratings/Dept`, `hoverMode` (`none/image/actions`), `swapAnimation` (`fade/slide/zoom/none`) + `swapDurationMs` 0–500, hover-state paint `hoverCardBg / hoverTextColor / hoverBorderColor` ("" = no change on hover) + CTA hover `ctaHoverBg / ctaHoverText / ctaHoverBorder`, `ctaSet` (max 3) + `ctaPosition`, `showActionsOnTouch`, `nameSize / priceSize`, listing columns desktop 3/4/5 – tablet 2/3 (**cap 3** — 4-up below 1024px squeezes cards under ~220px and thumb + two text lines stop being legible) – phone 1/2, `cardWidth / cardHeight` caps (listing-level, clamped). Hover paint resolves through CSS `:hover` on vars (never class toggles; `:not([disabled])`-style guards; `out`-of-stock cards get no hover faces). Every knob gets a flat per-instance twin (trio rule: explicit override always wins over theme). Resolver: same nested-merge + clean/clamp/union discipline. Matrix records rows same-commit.
 
 ## 10. Deferred, reserved (props land now, slices later)
 
