@@ -82,18 +82,17 @@ Data pattern (sf-035 — third `useSearch` instance): `lib/select/options.ts`
 reload`, mount-load, stale-kill) → §9 async + themed demos (own hook
 instances; CMS/service swaps one line).
 
-Tooltip (`theme.tooltip`, PLANNED sf-036 — no code yet; feeds the existing
-`style` object prop, zero component change; keeps its own slide/fade/none
-micro-motion, never shared presets):
+Tooltip (`theme.tooltip`, sf-037 — feeds the existing `style` object prop,
+zero component change; keeps its own slide/fade/none micro-motion, never
+shared presets):
 
 | Knob | Type | Default |
 |---|---|---|
-| `bg / textColor / borderColor / borderWidth` | colors + 0–4 | ink / white / ink / 1 |
-| `radius / fontSize / fontWeight / offset` | 0–12 / 10–16 / 400–700 / 4–16 | 8 / 12 / 600 / 8 |
+| `bg / textColor / borderColor / borderWidth` | colors + 0–2 | ink / white / transparent / 0 |
+| `radius / fontSize / fontWeight / offset` | 0–16 / 11–14 / 400–700 / 4–16 | 8 / 12 / 500 / 8 |
 | `animation / durationMs` | `slide` / `fade` / `none` + 0–500 | `slide` / 160 |
 
-Dialog (`theme.dialog`, PLANNED sf-036 — no code yet; needs additive
-paint props first, Textarea precedent):
+Dialog (`theme.dialog`, sf-037 — additive paint props, Textarea precedent):
 
 | Knob | Type | Default |
 |---|---|---|
