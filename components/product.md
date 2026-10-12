@@ -1,6 +1,6 @@
-# Product card (+ gallery / variant stubs) — anatomy, media, badge, hover, ports
+# ProductCard (+ Gallery / VariantSelector stubs) — commerce face
 
-> Scope: `ProductCard` (anatomy, media swap, badge, info, hover actions, stock, ports, theme sketch) + Gallery/VariantSelector stubs §11.
+> Scope: `frontend/storefront/components/commerce/ProductCard.tsx` + `.sf-productcard` (media, badge, info, hover actions, stock/wishlist states, ports, theme group sketch).
 > Status: Active | Version 1.0 | Date: 2026-10-11
 > Parent: `components/README.md` (index + conventions)
 
@@ -8,121 +8,52 @@
 
 ## 1. Anatomy (look)
 
-Card root is `<article>` (listing item, never a link or button itself):
-media block (image + hover layer + badge) → info block (category eyebrow,
-name, price row, rating row). Columns live at the **listing level** —
-the card never knows siblings; the grid tells it its width.
+`<article>` root: media block (image + hover image + badge + hover CTA layer) → info (category eyebrow, name 2-line clamp, price + compare-at sale, rating). Card never knows siblings — grid columns live at the listing level (owner passes `columns` to the grid, not the card).
 
-Media ratios (admin picks one, default **4:5** — editorial precedent):
-
-| Ratio | Use |
-|---|---|
-| `1:1` | Square tiles, dense grids |
-| `3:4` | Portrait standard |
-| `4:5` | Portrait tall (default) |
-| `4:3` | Landscape |
-| `16:9` | Wide editorial |
-
-Row/column counts (listing-level, admin-picked): desktop 3 / 4 / 5,
-tablet 2 / 3 (**cap 3** — 4-up below 1024px squeezes cards under ~220px
-and the thumb + two text lines stop being legible), phone 1 / 2 (size
-adjusts accordingly).
+Media ratios (union, default `4:5` — editorial precedent): `3:4 / 4:3 / 4:5 / 1:1 / 16:9`. Ratio is a prop today, theme knob at build.
 
 ## 2. Media (cover + hover swap)
 
-`image` (cover) + optional `hoverImage`. Hover crossfades cover→hover
-(160ms fade, instant under reduced-motion); absent hover = static card.
-Both lazy-load with a placeholder wash behind; `alt=name` only when the
-media is NOT inside a labelled button (palette-row rule: labelled
-wrapper implies empty alt, no double-announce). Admin sets cover and
-hover independently; hover never required.
+`image` + optional `hoverImage` (admin sets both): hover crossfades cover→hover in 160ms (reduced-motion: instant swap, no fade). Absent hover = static cover. `loading="lazy"`, placeholder image-bg, `alt=""` — the card's open control already announces name+price (palette-row pattern, no double-announce).
 
-## 3. Badge (show, map, position)
+## 3. Badge (tag → face + position)
 
-`showBadge` toggle + per-product `tag` → the shared `tagTone` lib map +
-the admin's custom-badges map (see `customization.md` — one map home,
-card never switches on tag strings). `badgePosition: left | right`
-(default left). Badge shape rides Pill/Badge — **no card-level badge
-paint knobs** (faces stay system-wide by design).
+`showBadge` gate + per-product `tag` → `tagTone` map + owner-passed custom-badm map (sf-032 `tones` prop, same lookup order). `badgePosition: "left" | "right"` (default left). Shape rides Badge/Pill — no card-level badge paint, ever.
 
-## 4. Info (name, price, rating — each gated)
+## 4. Info (each with a show toggle)
 
-- Category eyebrow (`showDept`, muted, uppercase).
-- Name, 2-line clamp (`nameSize` admin-tunable; overflow ellipsizes,
-  never wraps the card taller).
-- Price + optional `compareAt` strikethrough (auto-sale face when
-  `compareAt > price`; sale keeps ink text — contrast law).
-- Rating + count (palette pattern: gold star, muted count, absent when
-  no rating). `showRatings` toggle.
+Name (2-line clamp, `nameSize`), price + optional `compareAt` strikethrough with auto sale face (`priceSize`), rating + count (palette pattern, `showRatings`), category eyebrow (`showDept`). Defaults mirror palette row faces.
 
-## 5. Hover layer (admin picks ONE mode)
+## 5. Hover layer (admin picks ONE)
 
-`hoverMode: "image" | "actions"` — image-swap OR CTA bar, never both
-(one hover story per card, no stacked effects).
+`hoverMode: "image" | "actions"` (default `actions`): image-swap (see §2) vs CTA bar with **max 3** of `quick-view / wishlist / add-to-cart / share` (`ctaSet` array, order = display order). CTA position `left / center / right` (default center); icons from the Icon set (glyph-only v1 — upload deferred with reason: icon-color theming breaks on arbitrary uploads). `onQuickView / onWishlist / onQuickAdd / onShare` callbacks (owner-owned; share falls back to clipboard when `navigator.share` is absent).
 
-CTA bar (max 3 of 4 — admin picks the set):
+## 6. Stock + wishlist states
 
-| Action | Behavior |
-|---|---|
-| Quick view | Fires reserved `onQuickView` (modal is its own later slice) |
-| Wishlist | Toggles via `wishIds` + `onWishlist` (palette `addedIds` pattern) |
-| Add to cart | Fires `onAdd` (cart-svc port, `QuickAddPort` pattern) |
-| Share | `navigator.share` + clipboard fallback (hook owns, later) |
+`stock: "in" | "low" | "out"` (default `in`): `low` shows a low-stock face; `out` disables all actions + dims media via explicit solids (never opacity — contrast ban) + "Sold out" face. `wishlisted: boolean` flips the heart (palette `addedIds` pattern; `useWishlist` hook lands with the wishlist slice — prop today, hook later).
 
-CTA position: left / center / right (admin). Icons from the Icon set,
-glyph-only v1 (no upload — stated trim; uploads need fallback design,
-deferred deliberately). On touch (`hover: none`): layer hidden unless
-`showActionsOnTouch` (admin toggle, default off).
+## 7. Card-as-link rule (dumbness boundary)
 
-## 6. Stock + wishlist states (explicit, never opacity)
+Root is `<article>`, never a button/link: media + name navigate via `onOpen(product)` (owner routes to PDP); actions are **sibling** buttons (nested-`<button>` ban — palette-row precedent). Whole-card click never swallows action clicks (stopPropagation at the action, stated). Actions sit in tab order; Esc closes nothing (no popup); focus-visible ring fixed.
 
-`stock: "in" | "low" | "out"` — `out` disables actions + shows a
-sold-out face on the media (explicit solids; the opacity ban holds on
-cards too). `low` shows a low-stock hint face. `wishlisted` flips the
-heart filled (wishlist hook `useWishlist` lands with the slice; card
-receives `wishIds`, stays controlled).
+Touch: hover layer is hover-only; on `(hover: none)` actions hide unless `showActionsOnTouch` (admin toggle, default false). Tap = `onOpen` (navigate) — no first-tap-reveal (locked: reveal-on-tap traps touch users in a mode with no exit affordance).
 
-## 7. Card-as-link rule (nested-button ban)
+## 8. Data (ports, additive — `SearchResult` extends, never forks)
 
-Media + name navigate via `onOpen(product)` — the **owner** routes to
-the PDP (parity with palette's `onView` rule: dumb card never imports
-the router). Actions are **sibling** buttons beside the open-target,
-never inside it (nested buttons are illegal HTML — palette-row
-precedent). Whole-card click never swallows action clicks.
+`ProductCardData extends SearchResult`: `hoverImage? / url? / compareAt? / stock? / wishlisted?` (all optional — absent renders the base face). Cart reuses `QuickAddPort`; wishlist gets `WishlistPort { toggle(id, signal) }` (same shape); share is owner-handled (no port — Web Share API is browser, not service). CMS/product-svc replaces demo rows at the call site (one line), callers never change.
 
-## 8. Keyboard + a11y (fixed, not customizable)
+## 9. Theme group sketch (`theme.productCard` — build task wires)
 
-Actions sit in tab order (they're real buttons); the open-target is
-keyboard-operable; Esc closes nothing (no popup on the card);
-focus-visible ring fixed; touch gets actions only when admin enables
-them (§5). Reduced-motion kills the media crossfade.
+`cardBg / borderColor / borderRadius` 0–24, `mediaRatio` union, `badgePosition`, `showBadge/Ratings/Dept`, `hoverMode`, `ctaSet` (max 3) + `ctaPosition`, `showActionsOnTouch`, `nameSize / priceSize`, listing columns desktop 3/4/5 – tablet 2/3 (**cap 3** — 4-up below 1024px squeezes cards under ~220px and thumb + two text lines stop being legible) – phone 1/2, `cardWidth / cardHeight` caps (listing-level, clamped). Resolver: same nested-merge + clean/clamp/union discipline. Matrix records rows same-commit.
 
-## 9. Ports (data in, never fetched)
+## 10. Deferred, reserved (props land now, slices later)
 
-Product data extends `SearchResult` with additive optionals only
-(`hoverImage?`, `url?`, `compareAt?`, `stock?`) — zero breakage to
-search consumers. Behaviors reuse port shapes: cart add mirrors
-`QuickAddPort`; wishlist/share land as `WishlistPort`/share-hook with
-the same abortable, demo-swappable contract. Demo rows serve the
-showcase until catalog-svc lands (throwaway-by-replacement).
+- Single-attribute quick-pick (`selectedAttribute?` + `onAttribute?` — needs variant-inventory thinking; reserved, never stubbed UI).
+- Quick-view modal slice (reserved `onQuickView(product)`; modal carries PDP data needs — own slice).
+- Compare (`onCompare?` + `compareBehavior: "page" | "modal"` — admin selects destination; both land in the compare slice).
+- Skeleton face (loading shimmer — lands with listing slice, not per-card).
 
-## 10. Theme group sketch (`theme.productCard`, build task)
+## 11. Gallery / VariantSelector (stubs — one line each, no placeholders)
 
-`cardBg / borderColor / borderRadius` (0–24) · `mediaRatio` (5-member
-union, default `4:5`) · `badgePosition` + `showBadge` · info toggles
-(`showDept / showRatings`) + `nameSize / priceSize` · `hoverMode` +
-`ctaSet` (max 3) + `ctaPosition` + `showActionsOnTouch` · listing
-columns (desktop 3–5, tablet 2–3, phone 1–2) · `cardWidth / cardHeight`
-caps · reserved `onQuickView / onCompare` + `compareBehavior:
-"page" | "modal"` (compare button navigates or modals per admin —
-locked decision) · reserved single-attribute quick-pick
-(`selectedAttribute` + `onAttribute` — variant-inventory thinking
-deferred).
-
-## 11. Stubs (filled by their slices — one line each, no placeholders)
-
-- **Gallery** (PDP media rail: thumbs, zoom, ratio sync with card) —
-  lands with the PDP slice.
-- **VariantSelector** (attribute pick → inventory → price; the
-  single-attribute quick-pick graduates here) — lands with the
-  variant-inventory design.
+- **Gallery**: PDP media rail (thumbs + zoom contract) — lands with PDP slice.
+- **VariantSelector**: size/color pickers feeding `selectedAttribute` — lands with the attribute-thinking task.
