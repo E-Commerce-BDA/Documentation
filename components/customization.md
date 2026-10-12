@@ -16,7 +16,9 @@ Every settings slice appends its rows here same-commit, or the slice isn't done.
 |---|---|---|---|
 | Pill (`pill.md`) | `--pill-*` faces (bg/active-text/text/border/chip-bg/action-bg/action-text/added-bg/added-text/radius) | CSS vars (parent inlines) | Oceanic tokens, radius 999 |
 | Toast (`toast.md`) | `open/title/message/icon/onClose` | Props only | — (no knobs by design) |
-| Badge | `tone` (success/warning/error/sale/info/neutral/lilac) | Prop | `neutral` (tones fixed) |
+| Badge | `tone` (7 builtins + custom ids) + `tones` map | Prop + `theme.badges.custom` | `neutral`; customs: id/bg/text required, border→bg, style solid/dashed/dotted, cap 20 |
+| Icon | `size/strokeWidth/filled/color` | Props + `theme.icon` house (16–32 / 1–3 / bool / ""=currentColor) | 20 / 2 / outline / currentColor |
+| Textarea | `bg/textColor/borderColor/focusBorderColor/radius/rows` | Props + `theme.textarea` | white / ink / border / accent / 10 / 4 |
 
 Button (`button.md`, sf-030 — highest-reuse primitive first):
 
