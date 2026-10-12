@@ -30,6 +30,37 @@ Button (`button.md`, sf-030 — highest-reuse primitive first):
 | `disabledBg / disabledTextColor / disabledBorderColor / disabledBorderWidth / disabledHoverEnabled` | flat (win over `animation.disabled`) | explicit solids |
 | `loading` | boolean (spinner face) | false |
 
+Theme house defaults (`theme.button`, sf-031 — per-instance flat props still win):
+
+| Knob | Type | Default |
+|---|---|---|
+| `defaultVariant / defaultSize` | house style | `primary` / `md` |
+| `bg / textColor / borderColor` | colors ("" = variant applies) | "" (no override) |
+| `borderRadius` | 0–24 | 8 |
+| `animation` | global layer for `resolveButtonAnimation` | {} (pure defaults) |
+
+Input (`theme.input`, sf-031 — flat `bg/textColor/borderColor/radius` props win):
+
+| Knob | Type | Default |
+|---|---|---|
+| `bg / textColor / borderColor / focusBorderColor` | colors ("" = component tokens) | "" (no override) |
+| `borderRadius` | 0–24 | 10 |
+
+Checkbox (`theme.checkbox`, sf-031 — flat `boxBg/tickColor/borderColor/borderRadius/size` win):
+
+| Knob | Type | Default |
+|---|---|---|
+| `size` | 16–28px | 20 |
+| `boxBg / tickColor / borderColor` | colors ("" = accent/white/border tokens) | "" / `#FFFFFF` / "" |
+| `borderRadius` | 0–12 | 6 |
+
+Toggle (`theme.toggle`, sf-031 — flat `onColor/offColor/knobColor/width/height` win):
+
+| Knob | Type | Default |
+|---|---|---|
+| `width / height` | 32–64 / 20–32px | 44 / 24 |
+| `onColor / offColor / knobColor` | colors ("" = accent/border tokens) | "" / "" / `#FFFFFF` |
+
 ## Search overlays (nested `search.*` groups, resolved per-key)
 
 Sheet (`sheetAnimation` only + flat `placeholder`/`dept` props):
