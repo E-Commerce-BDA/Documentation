@@ -41,6 +41,8 @@ Theme house defaults (`theme.button`, sf-031 — per-instance flat props still w
 | `borderRadius` | 0–24 | 8 |
 | `animation` | global layer for `resolveButtonAnimation` | {} (pure defaults) |
 
+Wiring (sf-038 — `theme` object prop, trio-lowest: flat > theme > variant/defaults; animation global fills the pre-built slot): AuthForm submit (first production site) + §1 house-style demo row. All other demos stay explicit (variant showcase intent). Remaining primitives wire one per turn.
+
 Input (`theme.input`, sf-031 — flat `bg/textColor/borderColor/radius` props win):
 
 | Knob | Type | Default |
