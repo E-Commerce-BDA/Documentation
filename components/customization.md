@@ -82,7 +82,41 @@ Data pattern (sf-035 — third `useSearch` instance): `lib/select/options.ts`
 reload`, mount-load, stale-kill) → §9 async + themed demos (own hook
 instances; CMS/service swaps one line).
 
+Tooltip (`theme.tooltip`, PLANNED sf-036 — no code yet; feeds the existing
+`style` object prop, zero component change; keeps its own slide/fade/none
+micro-motion, never shared presets):
+
+| Knob | Type | Default |
+|---|---|---|
+| `bg / textColor / borderColor / borderWidth` | colors + 0–4 | ink / white / ink / 1 |
+| `radius / fontSize / fontWeight / offset` | 0–12 / 10–16 / 400–700 / 4–16 | 8 / 12 / 600 / 8 |
+| `animation / durationMs` | `slide` / `fade` / `none` + 0–500 | `slide` / 160 |
+
+Dialog (`theme.dialog`, PLANNED sf-036 — no code yet; needs additive
+paint props first, Textarea precedent):
+
+| Knob | Type | Default |
+|---|---|---|
+| `overlayColor / overlayAlpha` | color / 0–100 | ink / 50 |
+| `panelBg / borderColor / borderRadius / maxWidth` | color / color / 0–24 / 320–720 | white / border / 12 / 448 |
+| `titleColor / titleSize` | color / 14–24 | ink / 18 |
+| `bodySize / bodyWeight / bodyColor` | inherited panel defaults (owner direct styles win) | 14 / 400 / ink |
+| action buttons | — (no knob: `theme.button.defaultVariant` already sets the house button; Dialog never retints owner's children) | — |
+
 ## Search overlays (nested `search.*` groups, resolved per-key)
+
+Why overlays differ (one line each — different jobs, different knobs):
+
+| Overlay | Job | Therefore customizes |
+|---|---|---|
+| Sheet | Transient top panel | Motion + placeholder only (thin by design) |
+| Editorial | Brand takeover | Copy + paint (24 knobs: voice and look) |
+| Palette | Dense tool | Geometry + visibility + actions (40 knobs: behavior) |
+| Classic | Fallback | Nothing by design (zero-knob fallback must stay trivial) |
+
+Shared across all three live variants: motion-instance shape (preset→concrete,
+per-variant instances), theme-object→vars paint, trap+Esc+return, curated-
+before-typing, OS-chrome honesty (knobs mark applicability like Select).
 
 Sheet (`sheetAnimation` only + flat `placeholder`/`dept` props):
 
