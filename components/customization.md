@@ -292,37 +292,37 @@ Sheet paint reuses navbar tokens (`--nb-bg` panel, `--nb-text` ink) — no sheet
 State legend: **live** = works end-to-end; **settings-only** = vocabulary
 resolved, chrome mount pending (Paints-via says wiring-pending — never
 invented).
-### Regions (`regions.*`, settings-only)
+### Regions (`regions.*`, **live** — Navbar gates on them)
 
 | Variable | Description | Values | Default | Paints via |
 |---|---|---|---|---|
-| `regions.announcement` | To show or hide the announcement region of the navbar | boolean | true | region gate (wiring pending) |
-| `regions.logo` | To show or hide the logo region of the navbar | boolean | true | region gate (wiring pending) |
-| `regions.links` | To show or hide the links region of the navbar | boolean | true | region gate (wiring pending) |
-| `regions.search` | To show or hide the search region of the navbar | boolean | true | region gate (wiring pending) |
-| `regions.account` | To show or hide the account region of the navbar | boolean | true | region gate (wiring pending) |
-| `regions.wishlist` | To show or hide the wishlist region of the navbar | boolean | true | region gate (wiring pending) |
-| `regions.cart` | To show or hide the cart region of the navbar | boolean | true | region gate (wiring pending) |
-| `regions.badge` | To show or hide the cart badge region of the navbar | boolean | true | region gate (wiring pending) |
+| `regions.announcement` | To show or hide the announcement region of the navbar | boolean | true | region gate (Navbar) |
+| `regions.logo` | To show or hide the logo region of the navbar | boolean | true | region gate (Navbar) |
+| `regions.links` | To show or hide the links region of the navbar | boolean | true | region gate (Navbar) |
+| `regions.search` | To show or hide the search region of the navbar | boolean | true | region gate (Navbar) |
+| `regions.account` | To show or hide the account region of the navbar | boolean | true | region gate (Navbar) |
+| `regions.wishlist` | To show or hide the wishlist region of the navbar | boolean | true | region gate (Navbar) |
+| `regions.cart` | To show or hide the cart region of the navbar | boolean | true | region gate (Navbar) |
+| `regions.badge` | To show or hide the cart badge region of the navbar | boolean | true | region gate (Navbar) |
 
-### Logo (`logo.*`, settings-only)
-
-| Variable | Description | Values | Default | Paints via |
-|---|---|---|---|---|
-| `logo.imageUrl` | To set the logo image (empty shows the wordmark) | URL string | "" (wordmark) | img src (wiring pending) |
-| `logo.height` | To change height of the logo image | 20–40px | 24 | img height (wiring pending) |
-| `logo.position` | To place the logo left or centered in the bar | `left` / `center` | `center` | flex position (wiring pending) |
-| `logo.wordmark` | To change the text wordmark when no image is set | string | `SHOP` | rendered text (wiring pending) |
-
-### Bar (`bar.*`, settings-only)
+### Logo (`logo.*`, **live** — NavLogo renders it)
 
 | Variable | Description | Values | Default | Paints via |
 |---|---|---|---|---|
-| `bar.height` | To change height of the navbar bar | 56–80px | 64 | bar height (wiring pending) |
-| `bar.sticky` | To change how the bar sticks on scroll | `always` / `hide-on-scroll` / `static` | `always` | position behavior (wiring pending) |
-| `bar.shadow` | To change the shadow treatment under the bar | `border` / `float` / `none` | `border` | shadow face (wiring pending) |
+| `logo.imageUrl` | To set the logo image (empty shows the wordmark) | URL string | "" (wordmark) | img src (NavLogo) |
+| `logo.height` | To change height of the logo image | 20–40px | 24 | img height (NavLogo) |
+| `logo.position` | To place the logo left or centered in the bar | `left` / `center` | `center` | row order (Navbar — pending: needs order rule) |
+| `logo.wordmark` | To change the text wordmark when no image is set | string | `SHOP` | rendered text (NavLogo) |
 
-### Colors (`colors.*`, settings-only vocabulary, paint hooks live in CSS)
+### Bar (`bar.*`, **live** — Navbar inlines height/sticky/shadow)
+
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `bar.height` | To change height of the navbar bar | 56–80px | 64 | `--nb-height` (Navbar) |
+| `bar.sticky` | To change how the bar sticks on scroll | `always` / `hide-on-scroll` / `static` | `always` | `data-sticky` + scroll-hide (NavbarMount) |
+| `bar.shadow` | To change the shadow treatment under the bar | `border` / `float` / `none` | `border` | `data-shadow` (Navbar) |
+
+### Colors (`colors.*`, **live** — Navbar inlines the full `--nb-*` set)
 
 | Variable | Description | Values | Default | Paints via |
 |---|---|---|---|---|
@@ -354,17 +354,17 @@ invented).
 |---|---|---|---|---|
 | `announcement.items[].text` | To change the announcement message text | string | — (per item) | rendered text (prop) |
 | `announcement.items[].cta` | To change the call-to-action link of an announcement | { label, href } | — (optional) | anchor (prop) |
-| `announcement.items[].countdownTo` | To count down to an ISO moment on an announcement | ISO string | — (optional) | countdown face (prop) |
+| `announcement.items[].countdownTo` | To count down to an ISO moment on an announcement | ISO string | — (optional) | countdown face (pending — mount passes empty, tick follow-up) |
 | `announcement.showArrows` | To show or hide prev/next arrows on the bar | boolean | true | arrows render (prop) |
 | `announcement.autoplayMs` | To auto-rotate announcements every N ms (null = off) | ms / null | null | owner timer (effect) |
 | `announcement.dismissible` | To let shoppers dismiss the bar | boolean | true | dismiss control (prop) |
 | `announcement.collapseAnimation` | To animate the upward collapse on dismiss | boolean | true | collapse transition |
 
-### Search trigger (`search.enabled`, settings-only)
+### Search trigger (`search.enabled`, **live** — trigger + SearchMount)
 
 | Variable | Description | Values | Default | Paints via |
 |---|---|---|---|---|
-| `search.enabled` | To show or hide the search trigger in the navbar | boolean | true | trigger gate (wiring pending) |
+| `search.enabled` | To show or hide the search trigger in the navbar | boolean | true | trigger gate (Navbar) |
 | `search.overlayVariant` | To choose which overlay the trigger opens (see Search overlays) | 4 variants | `classic` | registry id (prop) |
 
 ### Account (`account.*`, settings-only)
@@ -383,12 +383,12 @@ invented).
 | `cart.dedicatedPage` | To also keep a dedicated cart page beside the drawer | boolean | false | route (wiring pending) |
 | `cart.badgeCap` | To cap the cart count badge (9 = "9+") | 1–99 | 9 | badge text (resolver) |
 
-### Hamburger / mobile (`mobile.*`, settings-only, drawer to-come)
+### Hamburger / mobile (`mobile.*`, **live** — drawer mounted)
 
 | Variable | Description | Values | Default | Paints via |
 |---|---|---|---|---|
-| `mobile.breakpoint` | To set the viewport width where the navbar collapses | 640–1024px | 768 | media query (wiring pending) |
-| `mobile.drawerSide` | To slide the mobile drawer in from the left or right | `left` / `right` | `left` | drawer anchor (wiring pending) |
+| `mobile.breakpoint` | To set the viewport width where the navbar collapses | 640–1024px | 768 | matchMedia query (NavbarMount) |
+| `mobile.drawerSide` | To slide the mobile drawer in from the left or right | `left` / `right` | `left` | `data-side` (MobileDrawer) |
 
 ## Stubs (filled by their slices — one line each, no placeholders)
 
