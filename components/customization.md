@@ -208,42 +208,84 @@ Shared across all three live variants: motion-instance shape (preset→concrete,
 per-variant instances), theme-object→vars paint, trap+Esc+return, curated-
 before-typing, OS-chrome honesty (knobs mark applicability like Select).
 
-Sheet (`sheetAnimation` only + flat `placeholder`/`dept` props):
+### Sheet (`search.*`, sf-017 — thin by design)
 
-| Knob | Type | Default |
-|---|---|---|
-| `overlayVariant` | `classic/palette/sheet/editorial` | `classic` |
-| `placeholder` | string | `Search products…` |
-| `sheetAnimation` | motion instance | smooth 240 ease-out, full |
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `search.overlayVariant` | To choose which overlay the island loads | `classic` / `palette` / `sheet` / `editorial` | `classic` | registry id (prop) |
+| `search.placeholder` | To change the hint text inside the search field | string | `Search products…` | input placeholder |
+| `search.sheetAnimation` | To change the arrival animation of the sheet | motion preset + custom + off | smooth 240 ease-out, full travel | `--searchsheet-duration` / `--searchsheet-easing` |
+| `dept` (flat prop) | To set the active department filter (owner-driven) | department string | `All` | active pill (prop) |
 
-Editorial (`search.editorial`, sf-023):
+Sheet paint reuses navbar tokens (`--nb-bg` panel, `--nb-text` ink) — no sheet-owned paint knobs by design.
 
-| Knob | Type | Default |
-|---|---|---|
-| `bg / bgAlpha / blur / blurPx` | color / 0–100 / bool / 0–24 | `#f5fafc` / 100 / off / 8 |
-| `eyebrow / eyebrowColor / archiveEyebrow / archiveColor` | strings | Atelier copy, muted/accent |
-| `inputColor / placeholderColor / underlineColor` | colors | ink / `#93a3b1` / ink |
-| `title / titleColor / mutedColor / closeIconColor` | string + colors | Curated copy, ink/muted/ink |
-| `tabTextColor / tabActiveBg / tabActiveText / tabShape` | colors + `pill` (v1) | muted / ink / white |
-| `cardType / cardRadius / deptColor / nameColor / priceColor` | `standard` (v1) / 0–24 / colors | 16, muted/ink/ink |
-| `editorialAnimation` | motion instance | oceanic 320, full |
+### Editorial (`search.editorial`, sf-023 — verified)
 
-Palette (`search.palette`, sf-024 + sf-028):
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `search.editorial.bg` | To change background wash of the takeover | color | `#f5fafc` | `--ed-bg` (+ `--ed-alpha` mix) |
+| `search.editorial.bgAlpha` | To change opacity of the background wash | 0–100 | 100 | `--ed-alpha` |
+| `search.editorial.blur` | To turn backdrop blur on or off behind the wash | boolean | false | `data-blur` hook |
+| `search.editorial.blurPx` | To change blur radius behind the wash | 0–24px | 8 | `--ed-blur-px` |
+| `search.editorial.eyebrow` | To change the header eyebrow text | string | Atelier copy | rendered text (prop) |
+| `search.editorial.eyebrowColor` | To change text color of the header eyebrow | color | muted | `--ed-eyebrow` |
+| `search.editorial.archiveEyebrow` | To change the archive eyebrow text above the input | string | archive copy | rendered text (prop) |
+| `search.editorial.archiveColor` | To change text color of the archive eyebrow | color | accent | `--ed-archive` |
+| `search.editorial.inputColor` | To change text color inside the giant input | color | ink | `--ed-input` |
+| `search.editorial.placeholderColor` | To change hint text color inside the giant input | color | `#93a3b1` | `--ed-placeholder` |
+| `search.editorial.underlineColor` | To change color of the input underline rule | color | ink | `--ed-underline` |
+| `search.editorial.title` | To change the curated-grid heading text | string | Curated copy | rendered text (prop) |
+| `search.editorial.titleColor` | To change text color of the curated-grid heading | color | ink | `--ed-title` |
+| `search.editorial.mutedColor` | To change the muted support text across the takeover | color | muted | `--ed-muted` |
+| `search.editorial.closeIconColor` | To change color of the close X icon | color | ink | `--ed-close` |
+| `search.editorial.tabTextColor` | To change text color of inactive department tabs | color | muted | `--ed-tab` |
+| `search.editorial.tabActiveBg` | To change background of the active department tab | color | ink | `--ed-tab-bg` |
+| `search.editorial.tabActiveText` | To change text color of the active department tab | color | white | `--ed-tab-text` |
+| `search.editorial.tabShape` | To change shape language of the department tabs | `pill` (v1; underline/segmented later) | `pill` | `data-tabshape` hook |
+| `search.editorial.cardType` | To change card skin of the curated grid | `standard` (v1) | `standard` | `data-card` hook |
+| `search.editorial.cardRadius` | To change corner roundness of curated card images | 0–24px | 16 | `--ed-radius` |
+| `search.editorial.deptColor` | To change text color of the card department eyebrow | color | muted | `--ed-dept` |
+| `search.editorial.nameColor` | To change text color of the card product name | color | ink | `--ed-name` |
+| `search.editorial.priceColor` | To change text color of the card price | color | ink | `--ed-price` |
+| `search.editorial.editorialAnimation` | To change the arrival animation of the takeover | motion preset + custom + off | oceanic 320 | `--ed-duration` / `--ed-easing` |
 
-| Knob | Type | Default |
-|---|---|---|
-| `cardBg / backdrop / backdropAlpha / blur / blurPx` | color / color / 0–100 / bool / 0–24 | white / ink / 72 / on / 8 |
-| `inputColor / placeholderColor / iconColor / closeColor` | colors | ink / `#93a3b1` / accent / muted |
-| `mutedColor / headingColor / nameColor / priceColor / ratingColor / deptColor` | colors | muted / ink / ink / ink / gold / muted |
-| `pillActiveBg / pillActiveText / pillText / pillBorder / pillChipBg` | colors | ink / white / ink / border / white |
-| `quickAddBg / quickAddText / quickAddedBg / quickAddedText` | colors | accent-50 / ink / success-bg / success |
-| `pillRadius` | 0–999 (999 = stadium) | 999 |
-| `cardMaxWidth / rowsMaxHeight / thumbSize / inputSize / nameSize / thumbRadius` | clamped px | 720 / 300 / 64 / 16 / 17 / 14 |
-| `showFilters / showTrending / showRecent / showRatings / showTags / showDept / showFooter` | booleans | all true |
-| `rowAction` | `quick-add` (v1; view/both later + onView) | `quick-add` |
-| `cardType` | `row` (v1) | `row` |
-| `notifyOnQuickAdd` | boolean (owner surfaces Toast) | true |
-| `paletteAnimation` | motion instance | oceanic 320, full |
+### Palette (`search.palette`, sf-024 + sf-028 — verified)
+
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `search.palette.cardBg` | To change background of the modal card | color | white | `--pl-card` |
+| `search.palette.backdrop` | To change color of the dim wash behind the card | color | ink | `--pl-backdrop` |
+| `search.palette.backdropAlpha` | To change opacity of the dim wash | 0–100 | 72 | `--pl-backdrop-alpha` |
+| `search.palette.blur` | To turn backdrop blur on or off behind the wash | boolean | true | `data-blur` hook |
+| `search.palette.blurPx` | To change blur radius behind the wash | 0–24px | 8 | `--pl-blur-px` |
+| `search.palette.cardMaxWidth` | To change width cap of the modal card | 480–960px | 720 | `--pl-maxw` |
+| `search.palette.inputColor` | To change text color inside the search field | color | ink | `--pl-input` |
+| `search.palette.inputSize` | To change font size inside the search field | 14–24px | 16 | `--pl-input-size` |
+| `search.palette.placeholderColor` | To change hint text color inside the search field | color | `#93a3b1` | `--pl-placeholder` |
+| `search.palette.iconColor` | To change color of the search glyph | color | accent | `--pl-icon` |
+| `search.palette.closeColor` | To change color of the close X | color | muted | `--pl-close` |
+| `search.palette.mutedColor` | To change the muted support text across the modal | color | muted | `--pl-muted` |
+| `search.palette.headingColor` | To change text color of section headings in the modal | color | ink | `--pl-heading` |
+| `search.palette.nameColor` | To change text color of product names in rows | color | ink | `--pl-name` |
+| `search.palette.nameSize` | To change font size of product names in rows | 14–22px | 17 | `--pl-name-size` |
+| `search.palette.priceColor` | To change text color of prices in rows | color | ink | `--pl-price` |
+| `search.palette.ratingColor` | To change color of the rating star | color | gold | `--pl-rating` |
+| `search.palette.deptColor` | To change text color of the row department label | color | muted | `--pl-dept` |
+| `search.palette.rowsMaxHeight` | To change height cap of the scrollable rows region | 160–600px | 300 | `--pl-rows-max` |
+| `search.palette.thumbSize` | To change size of the square row thumbnail | 48–96px | 64 | `--pl-thumb-size` |
+| `search.palette.thumbRadius` | To change corner roundness of the row thumbnail | 0–24px | 14 | `--pl-thumb` |
+| `search.palette.showFilters` | To show or hide the department filter row | boolean | true | region gate (prop) |
+| `search.palette.showTrending` | To show or hide the trending column | boolean | true | region gate (prop) |
+| `search.palette.showRecent` | To show or hide the recent-searches column | boolean | true | region gate (prop) |
+| `search.palette.showRatings` | To show or hide ratings in rows | boolean | true | region gate (prop) |
+| `search.palette.showTags` | To show or hide tag badges in rows | boolean | true | region gate (prop) |
+| `search.palette.showDept` | To show or hide department labels in rows | boolean | true | region gate (prop) |
+| `search.palette.showFooter` | To show or hide the keyboard-hint footer | boolean | true | region gate (prop) |
+| `search.palette.rowAction` | To change which action rows offer | `quick-add` (v1; view/both later + onView) | `quick-add` | action branch (prop) |
+| `search.palette.cardType` | To change card skin of the rows | `row` (v1) | `row` | `data-card` hook |
+| `search.palette.notifyOnQuickAdd` | To notify the shopper on quick-add (owner surfaces Toast) | boolean | true | owner effect gate |
+| `search.palette.paletteAnimation` | To change the arrival animation of the modal | motion preset + custom + off | oceanic 320 | `--pl-duration` / `--pl-easing` |
+| Pill faces (`pillActiveBg` … `pillRadius`, 10 knobs) | To change filter/trending/quick-add faces (see Pill section) | colors + 0–999 | ink / white / 999 | `--pill-*` (not repeated here) |
 
 ## Navbar + inner blocks (settings live, components mixed)
 
