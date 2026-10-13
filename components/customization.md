@@ -56,12 +56,58 @@ their batch lands.
 | `theme.badges.custom[].borderColor` | To change border color of the custom badge | color | falls back to bg | face border |
 | `theme.badges.custom[].borderStyle` | To change border line style of the custom badge | `solid` / `dashed` / `dotted` | `solid` | face border-style |
 
-### Still grouped (migrate in later batches)
+### Icon (`Icon`, sf-043 — verified)
 
-| Surface | Knob | Type | Default |
-|---|---|---|---|
-| Icon | `size/strokeWidth/filled/color` | Props + `theme.icon` house (16–32 / 1–3 / bool / ""=currentColor) | 20 / 2 / outline / currentColor |
-| Textarea | `bg/textColor/borderColor/focusBorderColor/radius/rows` | Props + `theme.textarea` | white / ink / border / accent / 10 / 4 |
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `name` | To choose which glyph the icon shows | IconName union (kebab-case, from `ICON_NAMES`) | — (required) | glyph map (prop) |
+| `size` | To change the pixel box of the icon | any px (house 16–32) | 20 | svg width/height |
+| `strokeWidth` | To change the stroke weight of the icon | any (house 1–3, float allowed) | 2 | svg `stroke-width` |
+| `filled` | To show the icon as a filled silhouette instead of outline | boolean | false (outline) | svg `fill` |
+| `color` | To change the stroke ink of the icon | color ("" = currentColor behavior) | `currentColor` | CSS `color` on svg (prop) |
+| `title` | To give a standalone icon an accessible name | string | — (decorative, aria-hidden) | `<title>` + role=img |
+| `theme.icon.size` | To set the house default icon size | 16–32 | 20 | owner feeds `size` |
+| `theme.icon.strokeWidth` | To set the house default stroke weight | 1–3 | 2 | owner feeds `strokeWidth` |
+| `theme.icon.filled` | To default all icons to filled silhouettes | boolean | false | owner feeds `filled` |
+| `theme.icon.color` | To set the house default stroke ink | color ("" = currentColor) | "" | owner feeds `color` |
+
+### Textarea (`Textarea`, sf-043 — verified)
+
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `value` | To set the text content of the field | string | — (controlled, required) | textarea value (prop) |
+| `label` | To change the caption above the field | string | — (optional) | `<label>` text |
+| `helper` | To change the hint line under the field | string | — (optional) | helper text (prop) |
+| `error` | To show a validation message and the invalid face | string | — (optional) | alert text + error border |
+| `rows` | To change the visible height of the field in text rows | 2–12 (house) | 4 | `rows` attr |
+| `radius` | To change corner roundness of the field | 0–24 (house) | 10 | `borderRadius` style |
+| `borderColor` | To change border color of the field | color | `--border` token | border style |
+| `bg` | To change background of the field | color | white surface token | background style |
+| `textColor` | To change text color inside the field | color | ink token | color style |
+| `focusBorderColor` | To change border color while the field is focused | color | accent token | `--ta-focus` var |
+| `theme.textarea.*` | To set house defaults for the six paint/size knobs above | same ranges | builtins (10 / 4) | owner feeds flat props |
+
+### Button (`Button`, sf-043 — verified)
+
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `variant` | To change the button's color family | 6 variants | `primary` (house: `theme.defaultVariant`) | variant map → `--btn-*` |
+| `size` | To change the button's height scale | `sm` / `md` / `lg` (36/44/52px) | `md` (house: `theme.defaultSize`) | minHeight/padding/fontSize |
+| `bg` | To change background of the button | color ("" = variant) | variant face | `--btn-bg` |
+| `textColor` | To change text color of the button | color ("" = variant) | variant face | `--btn-text` |
+| `borderColor` | To change border color of the button | color ("" = variant) | variant face | `--btn-border` |
+| `borderWidth` | To change border thickness of the button | 0–4px | 1 | `--btn-bw` |
+| `borderRadius` | To change corner roundness of the button | 0–24 (999+ = full stadium) | 8 (house) | `--btn-radius` |
+| `waveBg / waveText` | To change the hover wave wash and the text color riding it | colors | per-variant faces | `--wave-bg` / `--wave-text` |
+| `hoverBorderColor` | To change border color while hovering | color (`"auto"` = waveBg) | variant | `--wave-border` |
+| `waveOrigin / peaks / peakHeight` | To change where the wave rises from, crest count, crest depth | 4 edges / 1–3 / 4–24px | bottom / 2 / 12 | wave mask + `--wave-peak` |
+| `durationMs / textDelayMs / easing` | To change wave travel time, text-swap delay, timing curve | 0–1000 / 0–500 / easing | 360 / 200 / smooth | `--wave-duration` / `--wave-delay` / `--wave-easing` |
+| `animationKind` | To change the interaction model of the button | wave-rise / fade×4 / linear / none | `wave-rise` | `data-anim-kind` |
+| `useWave / animationEnabled` | To turn the travelling wave layer on or off | boolean | true | wave layer render |
+| `disabledBg / disabledTextColor / disabledBorderColor / disabledBorderWidth / disabledHoverEnabled` | To change the dead-button face (explicit solids, never dimmed) | colors + 0–4 + bool | ink-on-mist set | disabled face vars |
+| `pressedScale / pressedTranslateY / pressedShadow / pressedEnabled` | To change the press-depth effect of the button | 0.9–1 / 0–8px / shadow / bool | off (1 / 0 / none) | `--pressed-scale` / `--pressed-translate` / `--pressed-shadow` |
+| `theme.button.*` | To set house defaults for variant/size/paint/animation | same ranges | builtins | `theme` object prop (trio-lowest) |
+
 
 Button (`button.md`, sf-030 — highest-reuse primitive first):
 
