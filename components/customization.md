@@ -367,18 +367,18 @@ invented).
 | `search.enabled` | To show or hide the search trigger in the navbar | boolean | true | trigger gate (Navbar) |
 | `search.overlayVariant` | To choose which overlay the trigger opens (see Search overlays) | 4 variants | `classic` | registry id (prop) |
 
-### Account (`account.*`, settings-only)
+### Account (`account.*`, mounted preview — disabled until account slice)
 
 | Variable | Description | Values | Default | Paints via |
 |---|---|---|---|---|
-| `account.enabled` | To show or hide the account entry in the navbar | boolean | true | entry gate (wiring pending) |
+| `account.enabled` | To show or hide the account icon in the navbar (disabled preview) | boolean | true | entry gate (Navbar) |
 | `account.items` | To choose which account entries appear | `orders` / `addresses` / `wishlist` / `signout` set | all four | menu list (wiring pending) |
 
-### Cart (`cart.*`, settings-only, MiniCartDrawer to-come)
+### Cart (`cart.*`, mounted preview — functional wiring stays cart-slice)
 
 | Variable | Description | Values | Default | Paints via |
 |---|---|---|---|---|
-| `cart.enabled` | To show or hide the cart entry in the navbar | boolean | true | entry gate (wiring pending) |
+| `cart.enabled` | To show or hide the cart icon in the navbar (disabled preview) | boolean | true | entry gate (Navbar) |
 | `cart.destination` | To open the cart as a drawer or a dedicated page | `drawer` / `page` | `drawer` | mount branch (wiring pending) |
 | `cart.dedicatedPage` | To also keep a dedicated cart page beside the drawer | boolean | false | route (wiring pending) |
 | `cart.badgeCap` | To cap the cart count badge (9 = "9+") | 1–99 | 9 | badge text (resolver) |
@@ -389,6 +389,13 @@ invented).
 |---|---|---|---|---|
 | `mobile.breakpoint` | To set the viewport width where the navbar collapses | 640–1024px | 768 | matchMedia query (NavbarMount) |
 | `mobile.drawerSide` | To slide the mobile drawer in from the left or right | `left` / `right` | `left` | `data-side` (MobileDrawer) |
+
+### Wishlist trigger (no theme group — mounted preview until wishlist slice)
+
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `regions.wishlist` | To show or hide the wishlist icon in the navbar (disabled preview) | boolean | true | entry gate (Navbar) |
+| `count / badgeCap` | To show a capped count badge on the wishlist icon | number / 1–99 | 0 (hidden) / 9 | `.sf-navcart__badge` |
 
 ## Stubs (filled by their slices — one line each, no placeholders)
 
