@@ -10,13 +10,56 @@
 
 Every settings slice appends its rows here same-commit, or the slice isn't done. Surfaces land in three states: **live** (knobs work end-to-end), **settings-only** (vocabulary resolved, component to-come), **stub** (one line, filled by its slice). No knob exists without a row; no row without a knob.
 
-## Dumb primitives (props/vars, no CMS groups yet)
+## Dumb primitives (one row per variable — sf-042 schema)
+
+Schema: **Variable** (admin knob path) | **Description** (what it changes)
+| **Values** (type/range) | **Default** | **Paints via** (CSS var or prop).
+Names verified against code (step-0 grep); tables bend to code, never
+the reverse. Batches land per component; grouped rows below migrate as
+their batch lands.
+
+### Pill (`pill.md`, sf-042 — verified)
+
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `--pill-bg` | To change background of the active filter pill | color | ink `#0a2540` | `.sf-pill` active background |
+| `--pill-active-text` | To change text color of the active filter pill | color | white `#ffffff` | active pill color |
+| `--pill-text` | To change text color of inactive pills and chips | color | ink `#0a2540` | base `.sf-pill` color |
+| `--pill-border` | To change border color of inactive pills and chips | color | `--border` | base border |
+| `--pill-chip-bg` | To change background of trending chips | color | white `#ffffff` | chip background |
+| `--pill-action-bg` | To change background of the Quick Add button | color | `accent-50` | action background |
+| `--pill-action-text` | To change text color of the Quick Add button | color | ink `#0a2540` | action color |
+| `--pill-added-bg` | To change background of the Added (done) state | color | `success-bg` | added background |
+| `--pill-added-text` | To change text color of the Added (done) state | color | `success` | added color |
+| `--pill-radius` | To change corner roundness of all pills | 0–999px | 999 (stadium) | `border-radius` |
+
+### Toast (`toast.md`, sf-042 — verified; zero-knob surface by design)
+
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `open` | To show or hide the notification | boolean | — (owner-owned) | conditional render (prop) |
+| `title` | To change the bold headline of the notification | string | — | headline text (prop) |
+| `message` | To change the muted detail line under the headline | string | — (optional) | detail text (prop) |
+| `icon` | To change the leading glyph of the notification | ReactNode | — (optional) | icon slot (prop) |
+| `onClose` | To run when the user dismisses the notification | callback | — | X button (prop) |
+
+### Badge (`Badge`, sf-042 — verified)
+
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `tone` | To change which face the badge shows (builtin or custom id) | 7 builtins + custom ids | `neutral` | face lookup (prop) |
+| `tones` | To pass the resolved custom-badge map into the badge | `Record<id, CustomBadgeTone>` | — (owner passes) | lookup map (prop) |
+| `theme.badges.custom[].id` | To name a new admin-created badge | unique string (required) | — | custom face id |
+| `theme.badges.custom[].label` | To change the text shown on the custom badge | string | falls back to id | badge children |
+| `theme.badges.custom[].bg` | To change background of the custom badge | color (required) | — | face bg |
+| `theme.badges.custom[].textColor` | To change text color of the custom badge | color (required) | — | face text |
+| `theme.badges.custom[].borderColor` | To change border color of the custom badge | color | falls back to bg | face border |
+| `theme.badges.custom[].borderStyle` | To change border line style of the custom badge | `solid` / `dashed` / `dotted` | `solid` | face border-style |
+
+### Still grouped (migrate in later batches)
 
 | Surface | Knob | Type | Default |
 |---|---|---|---|
-| Pill (`pill.md`) | `--pill-*` faces (bg/active-text/text/border/chip-bg/action-bg/action-text/added-bg/added-text/radius) | CSS vars (parent inlines) | Oceanic tokens, radius 999 |
-| Toast (`toast.md`) | `open/title/message/icon/onClose` | Props only | — (no knobs by design) |
-| Badge | `tone` (7 builtins + custom ids) + `tones` map | Prop + `theme.badges.custom` | `neutral`; customs: id/bg/text required, border→bg, style solid/dashed/dotted, cap 20 |
 | Icon | `size/strokeWidth/filled/color` | Props + `theme.icon` house (16–32 / 1–3 / bool / ""=currentColor) | 20 / 2 / outline / currentColor |
 | Textarea | `bg/textColor/borderColor/focusBorderColor/radius/rows` | Props + `theme.textarea` | white / ink / border / accent / 10 / 4 |
 
