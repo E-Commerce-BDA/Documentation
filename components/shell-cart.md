@@ -30,10 +30,22 @@
 | AnnouncementBar | `components/shell/AnnouncementBar.tsx` | Dismissible bar; two-phase collapse, reduced-motion instant |
 | SearchSheet | `components/shell/SearchSheet.tsx` | Sheet variant (see `search-overlays.md`) |
 | SearchEditorial | `components/shell/SearchEditorial.tsx` | Editorial variant (see `search-overlays.md`) |
+| SearchPalette | `components/shell/SearchPalette.tsx` | Palette variant (see `search-overlays.md`) |
 | searchRegistry | `components/shell/searchRegistry.ts` | Variant → dynamic import; null over wrong (see `search-overlays.md` §4) |
+| NavLogo | `components/shell/NavLogo.tsx` | Image or wordmark; anchor announces it |
+| NavSearchTrigger | `components/shell/NavSearchTrigger.tsx` | Search glyph; hover/focus preloads the overlay chunk |
+| NavAccountButton | `components/shell/NavAccountButton.tsx` | User glyph; menu deferred (no menu primitive) |
+| NavWishlistButton | `components/shell/NavWishlistButton.tsx` | Heart + capped count badge |
+| MobileDrawer | `components/shell/MobileDrawer.tsx` | Slide panel + NavLinks; trap + Esc (parent owns open) |
+| Navbar | `components/shell/Navbar.tsx` | Regions-gated composition; --nb-* inline; zero state |
+| NavbarMount | `app/_components/NavbarMount.tsx` | Owns disclosure/dismiss/slides/scroll-hide/autoplay; auth self-suppress |
+| SearchMount | `components/shell/SearchMount.tsx` | Registry's first caller; lazy variant + own search state (absorbed sf-026) |
+| demoNavInput | `lib/shell/demoNavInput.ts` | Shared demo seam; cms-svc swaps one line per site |
 
 Hook homes: shared islands in `app/hooks/` (`useSearch`); shell-local hooks beside their component; `lib/` stays pure (no hooks — state violates purity). Pure presentation maps (`tagTone`-style tag→tone tables) live in `lib/<domain>/`, never in components — one home, both variants read it.
 
 ## 4. Cart blocks (to-come at cart slice)
 
 `CartLineItem`, `MiniCartDrawer`, `Footer` land here with the same shape: props→JSX, settings-driven, showcase-demoed, trio-tested, indexed here + README §1 + `0.Project-Overview.md` §14 same-commit. This section stays a stub until then — no placeholder components that get deleted later (AGENTS.md route-chrome rule, applied to shell).
+
+`NavCartButton.tsx` already exists on disk but stays **unmounted and unwired** until this slice — a trigger with no drawer is dead UI, and dead UI is worse than absent UI. It mounts here with the drawer, not before.
