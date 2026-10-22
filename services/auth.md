@@ -3,7 +3,7 @@
 > What this file is: the plain-language build checklist for login, signup,
 > sessions, and logout. First per-service backend doc — the other 8
 > services copy this shape later.
-> Status: Active | Version 1.0 | Date: 2026-09-18
+> Status: Active | Version 1.1 | Date: 2026-10-23
 > Parent: `0.Project-Overview.md` §14 · `1.Architecture.md` §5/§9
 > Referenced by: `pages/auth.md` (frontend companion, to create)
 
@@ -99,6 +99,17 @@ rarely (so it can afford a cabinet lookup and can be cancelled on demand).
 | My profile | 30/s | `200` your details | `401` not signed in · `403` signed in but asking for someone else's |
 | Change password | 5/s | `204` + all other sessions cancelled | `401` current password wrong (generic) |
 | Forgot / reset | 5/s | `202` accepted — same reply whether the email exists or not | single-use expiring reset link by mail |
+
+**Password rule (sign up, change password, reset):** 8–128 characters, at least one letter and one digit. The `400` message states the rule in plain words ("with guidance" above) — never the hash, the policy internals, or a stack trace. Longer passwords are allowed; only the listed minimums are enforced.
+
+### 4.1 Health probes
+
+| Probe | Happy path | When it says no | Who asks |
+|---|---|---|---|
+| `GET /health` | `200 {"status":"ok"}` | never while the process runs | Docker `HEALTHCHECK`, restart policy |
+| `GET /health/ready` | `200 {"status":"ready","checks":{"db":"up"}}` | `503 {"status":"not_ready","checks":{"db":"down"}}` | Compose `depends_on`, ALB target group |
+
+Liveness never queries Postgres: a database outage must not restart the ID office. Contract: `4.API-Design.md §1.9`.
 
 ## 5. Changing the locks (rotation, step by step)
 
