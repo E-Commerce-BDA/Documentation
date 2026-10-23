@@ -31,7 +31,7 @@
 |---|---|---|
 | `users` | Accounts | id, email, password_hash, first/last name, phone, avatar, status, timestamps |
 | `addresses` | Address book | user_id, type (shipping/billing), line1/2, city, state, postal_code, country, is_default |
-| `refresh_tokens` | Token rotation | user_id, token_hash, expires_at, revoked_at, created_at |
+| `refresh_tokens` | Token rotation | user_id, family_id, token_hash, expires_at, revoked_at, created_at |
 | `roles` | RBAC — role defs | id, name, slug (admin/customer), description |
 | `permissions` | RBAC — permission defs | id, name, slug (product.create, order.read...), description |
 | `role_permissions` | RBAC — join | role_id ↔ permission_id |
