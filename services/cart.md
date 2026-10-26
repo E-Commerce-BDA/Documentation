@@ -71,7 +71,8 @@ cart behavior.
   keys before forwarding. cart-svc trusts those headers only when the
   request arrived through the private gateway path.
 - Admin routes do not rely on gateway trust. They verify the JWT signature,
-  expiry, issuer/audience, and `admin` role locally.
+  expiry, issuer/audience (`iss: ecom-auth`, `aud: ecom-api`), and `admin`
+  role locally.
 - A guest cart is identified by `session_id`, not by a client-provided
   `user_id`. A logged-in cart is identified by `user_id`, not by a body
   field.
@@ -498,8 +499,9 @@ a contract change, not a v1 addition.
 
 ### 7.2 Authentication and authorization
 
-- Verify JWT signature, expiry, issuer/audience, and required role in
-  cart-svc. Do not rely on `x-roles` alone.
+- Verify JWT signature, expiry, issuer/audience (`iss: ecom-auth`,
+  `aud: ecom-api`), and required role in cart-svc. Do not rely on
+  `x-roles` alone.
 - The gateway strips forged identity headers; cart-svc trusts them only on
   the private path.
 - Admin role now; `cart.write` later. A removed admin role stays valid until
