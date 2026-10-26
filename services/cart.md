@@ -667,7 +667,7 @@ codes:
 | Redis idempotency | container stopped/commented | start `ecom-redis`; readiness includes Redis |
 | Kafka publisher | broker absent | no-op `IEventBus` adapter; log event; swap later |
 | `@ecom/contracts` DTOs/events | package absent | local DTOs; move when package lands |
-| Admin settings screen | `frontend/admin` empty | `ca-005`; API works with a test admin JWT |
+| Admin settings screen | `frontend/admin` empty | admin-app phase (not a cart-svc task); API works with a test admin JWT |
 | `ask_customer` policy | needs preview + choice UI | later phase; not in the v1 enum |
 | Audit read endpoint | write audit now; read later | hardening phase |
 | Settings cache | merge traffic is low | versioned cache key later |
