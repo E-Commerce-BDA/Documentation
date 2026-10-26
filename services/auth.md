@@ -75,10 +75,10 @@ rarely (so it can afford a cabinet lookup and can be cancelled on demand).
 * **P1 — Homemade badges go in the bin.** The entrance deletes any
   `x-user-id`, `x-roles`, or service key arriving from outside before
   doing anything else. Forged headers die at the door.
-* **P2 — Check stamps properly.** Re-press the seal (pinned HS256
-  algorithm — never trust the note's own claim about how it was sealed),
+* **P2 - Check stamps properly.** Re-press the seal (pinned HS256
+  algorithm - never trust the note's own claim about how it was sealed),
   allow 30 seconds of clock disagreement between machines, confirm it was
-  issued by auth-svc.
+  issued by auth-svc for this API (`iss: ecom-auth`, `aud: ecom-api`).
 * **P3 — Mind the entrance.** Fresh badges only after a passed check;
   scrub upstream error pages into a plain envelope + tracking number;
   speed limits: login/refresh 10 per second, checkout 5, normal reads 30.
