@@ -148,9 +148,10 @@ Liveness never queries Postgres: a database outage must not restart the ID offic
 * **Redis asleep** → look in the filing cabinet instead (a few
   milliseconds slower, fully correct). The shop stays open.
 * **Too many knocks** → `429` + "try again in N seconds".
-* **Guest basket at sign-in** → the shop merges it into the user's basket
-  on the server (same goods add up, different goods append). Baskets are
-  never merged by the browser.
+* **Guest basket at sign-in** → `cart-svc` applies the configured policy:
+  `merge` (default) sums matching lines and appends different ones,
+  `guest_wins` promotes the guest cart, `user_wins` keeps the user cart.
+  Baskets are never merged by the browser.
 * **Clocks disagree** → 30 seconds of forgiveness on expiry times.
 
 ## 7. Receipts (errors + traceability)
@@ -168,8 +169,8 @@ support replays the whole story across gateway, ID office, and cache.
 Green before any page connects: register → sign in → silent refresh →
 sign out kills the session; wrong credentials give the generic 401;
 rate limits answer 429; switched-off accounts stay out; guest basket
-merges; password change kills other sessions; two tabs refreshing at
-once don't trigger theft alarms.
+follows the configured policy (default merge); password change kills
+other sessions; two tabs refreshing at once don't trigger theft alarms.
 
 ## Appendix — where each fact lives (related files)
 
@@ -190,3 +191,4 @@ once don't trigger theft alarms.
   `0.Project-Overview.md`, `2.Tech-Stack.md`.
 * Frontend companion (to create): `pages/auth.md` — cookie handling in
   Next.js, guards, forms; points back here for everything server-side.
+* Cart policy, merge rules, and admin settings: `services/cart.md` §5–6.
