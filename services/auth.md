@@ -35,8 +35,10 @@ Shopper's browser          Main entrance (Nginx gateway)         Shops inside (s
                                       │  └──────────────┘    └───────────┘ │
 ```
 
-* The **browser** keeps two cookies in a locked box JavaScript cannot open
-  (HttpOnly). One is a short permission slip, one is a coat-check ticket.
+* **auth-svc returns the token pair in the JSON response body.** In the
+  storefront flow the server-side BFF receives that response and sets the
+  access/refresh tokens as HttpOnly cookies; the browser never receives
+  them directly. Direct API clients use `Authorization: Bearer`.
 * The **gateway (Nginx)** is the only one that checks stamps. It throws
   away any name badge a visitor made themselves, verifies the real stamp,
   and writes a fresh trusted badge (`x-user-id`, `x-roles`) for the shops
@@ -44,9 +46,12 @@ Shopper's browser          Main entrance (Nginx gateway)         Shops inside (s
   (`x-request-id`) so any complaint can be traced.
 * **auth-svc** is the ID office: it makes the stamps, keeps the filing
   cabinet (Postgres), and answers "is this ticket still good?".
-* The other shops (cart, order, cms) **never check IDs** — they trust the
-  entrance's badge. They sit behind a staff-only door (service key now,
-  certificates later) on a private corridor no shopper can enter.
+* The other shops (cart, order, cms) **never check IDs** for customer
+  routes — they trust the entrance's badge. They sit behind a staff-only
+  door (service key now, certificates later) on a private corridor no
+  shopper can enter. The cart admin settings route is the exception: it
+  verifies the JWT itself and requires the `admin` role, so a forged
+  `x-roles` header is not enough.
 
 ## 2. The two tokens, in plain words
 
@@ -93,8 +98,8 @@ rarely (so it can afford a cabinet lookup and can be cancelled on demand).
 | Counter | Speed limit | Happy path | When it says no |
 |---|---|---|---|
 | Sign up | 10/s | `201` + account created + signed in + `user.registered` announced | `409` email taken (plain words) · `400` weak password (with guidance) |
-| Sign in | 10/s | `200` + both cookies set | `401` "invalid email or password" — identical whether the email or the password was wrong, so strangers can't probe which accounts exist |
-| Refresh (fresh slip please) | 10/s | `200` + new pair, old ticket cancelled | `401` ticket expired → sign in again · `401` ticket already used → whole family cancelled + "signed out for safety" notice |
+| Sign in | 10/s | `200` + token pair in the body (the BFF sets HttpOnly cookies) | `401` "invalid email or password" — identical whether the email or the password was wrong, so strangers can't probe which accounts exist |
+| Refresh (fresh slip please) | 10/s | `200` + fresh access token + rotated refresh token; old ticket cancelled | `401` ticket expired → sign in again · `401` ticket already used → whole family cancelled + "signed out for safety" notice |
 | Sign out | — | `204`, always, even if already signed out (safe to retry) | never errors |
 | My profile | 30/s | `200` your details | `401` not signed in · `403` signed in but asking for someone else's |
 | Change password | 5/s | `204` + all other sessions cancelled | `401` current password wrong (generic) |
@@ -118,10 +123,13 @@ Liveness never queries Postgres: a database outage must not restart the ID offic
    Gone or cancelled: refuse.
 2. In one indivisible step: file a new stub, stamp the old stub
    "cancelled" (never delete it — a used-up stub is the proof of theft),
-   swap the sticky note, sign a fresh slip, set both cookies.
+   swap the sticky note, sign a fresh slip, and return the new pair; the
+   BFF sets both cookies.
 3. **The 10-second grace:** two browser tabs refreshing at once can both
    show the same ticket. A just-cancelled ticket re-shown within 10
-   seconds gets the already-made pair, not a theft alarm.
+   seconds gets the same refresh token back plus a fresh access token; the
+   refresh token is not rotated during grace. The next normal refresh
+   rotates it.
 4. Remember-me unchecked → ticket dies with the browser (24h cap);
    checked → 30-day hard cap, never extended by use.
 
@@ -147,13 +155,13 @@ Liveness never queries Postgres: a database outage must not restart the ID offic
 
 ## 7. Receipts (errors + traceability)
 
-Every "no" comes as the same receipt shape: `{code, message, requestId,
-status}`. The `code` is a fixed machine word from the shared contracts
-package (screens switch on it: sign-in redirect vs security notice vs
-support page). The `message` is safe to show a shopper — never table
-names, never stack traces. The `requestId` is the visit's tracking number
-from the entrance: one number pasted to support replays the whole story
-across gateway, ID office, and cache.
+Every "no" uses the shared envelope from `4.API-Design.md` §1.5:
+`{error:{code,message,details?}, requestId, timestamp}`. The `code` is a
+fixed machine word from the shared contracts package (screens switch on it:
+sign-in redirect vs security notice vs support page). The `message` is safe
+to show a shopper — never table names, never stack traces. The `requestId`
+is the visit's tracking number from the entrance: one number pasted to
+support replays the whole story across gateway, ID office, and cache.
 
 ## 8. Proving it works (blocks frontend wiring)
 
