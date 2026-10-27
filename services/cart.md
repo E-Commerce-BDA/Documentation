@@ -734,6 +734,7 @@ codes:
 | `cart.write` / `wishlist.write` permissions | auth permission catalogue empty | seed permissions + guards later |
 | Server-side guest wishlist | needs session-scoped rows, merge, TTL; guests use sign-in prompt + pending product id | separate feature |
 | Wishlist catalog validation | catalog-svc absent; current phase validates `productId` shape only | validate/hydrate when catalog adapter lands |
+| Cart merge role alignment | `POST /cart/merge` accepts any verified JWT; wishlist requires `customer` | align in a separate auth task |
 | Abandonment worker | TTL scan is a separate job | `last_activity_at` is ready |
 | Currency | store-level setting later | do not add a cart column |
 
