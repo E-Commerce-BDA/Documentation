@@ -5,7 +5,7 @@
 > Backend (tokens, endpoints, edge cases) lives in `services/auth.md` and is
 > NOT repeated here. Frontend behavior companion (`pages/auth.md`) to create
 > with the real build.
-> Status: Active | Version 1.0 | Date: 2026-09-27
+> Status: Active | Version 1.1 | Date: 2026-10-27
 > Parent: `0.Project-Overview.md` §14 · `pages/routing.md` (routes, headers)
 > Related: `services/auth.md` (backend) · `5.Features.md` A11 (acceptance)
 
@@ -91,6 +91,12 @@ resolve per page.
 Token mechanics, envelope codes/messages shape, rate limits, `?next=` flow,
 HttpOnly storage, 15m/30d lifetimes, reuse-detection response. Customization
 changes presentation only — security behavior is not themable.
+
+Pending wishlist intent follows the same `?next=` rule: the storefront keeps
+the product id in `?next=` or a short-lived cookie, never `localStorage`.
+After login it calls `POST /wishlist/items`; the unique
+`(wishlist_id, product_id)` constraint makes a duplicate a no-op. Guests are
+prompted to sign in; there is no server-side guest wishlist.
 
 ## 6. Storefront demo (`E:\E-Commerce\index.html` `#/auth` + knobs drawer)
 
