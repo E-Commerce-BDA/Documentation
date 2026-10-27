@@ -1,7 +1,7 @@
 # ProductCard (+ Gallery / VariantSelector stubs) — commerce face
 
 > Scope: `frontend/storefront/components/commerce/ProductCard.tsx` + `.sf-productcard` (media, badge, info, hover actions, stock/wishlist states, ports, theme group sketch).
-> Status: Active | Version 1.0 | Date: 2026-10-11
+> Status: Active | Version 1.1 | Date: 2026-10-27
 > Parent: `components/README.md` (index + conventions)
 
 ---
@@ -32,7 +32,7 @@ Name (2-line clamp, `nameSize`), price + optional `compareAt` strikethrough with
 
 ## 6. Stock + wishlist states
 
-`stock: "in" | "low" | "out"` (default `in`): `low` shows a low-stock face; `out` disables all actions + dims media via explicit solids (never opacity — contrast ban) + "Sold out" face. `wishlisted: boolean` flips the heart (palette `addedIds` pattern; `useWishlist` hook lands with the wishlist slice — prop today, hook later).
+`stock: "in" | "low" | "out"` (default `in`): `low` shows a low-stock face; `out` disables all actions + dims media via explicit solids (never opacity — contrast ban) + "Sold out" face. `wishlisted: boolean` flips the heart (palette `addedIds` pattern; `useWishlist` hook lands with the wishlist slice — prop today, hook later). The heart is product-level, not variant-level. Guests are prompted to sign in; the pending product id survives via `?next=` or a short-lived cookie (never `localStorage`) and is POSTed after login. A duplicate add is a no-op; admin-only tokens are rejected (403).
 
 ## 7. Card-as-link rule (dumbness boundary)
 
@@ -42,7 +42,7 @@ Touch: hover layer is hover-only; on `(hover: none)` actions hide unless `showAc
 
 ## 8. Data (ports, additive — `SearchResult` extends, never forks)
 
-`ProductCardData extends SearchResult`: `hoverImage? / url? / compareAt? / stock? / wishlisted?` (all optional — absent renders the base face). Cart reuses `QuickAddPort`; wishlist gets `WishlistPort { toggle(id, signal) }` (same shape); share is owner-handled (no port — Web Share API is browser, not service). CMS/product-svc replaces demo rows at the call site (one line), callers never change.
+`ProductCardData extends SearchResult`: `hoverImage? / url? / compareAt? / stock? / wishlisted?` (all optional — absent renders the base face). Cart reuses `QuickAddPort`; wishlist gets `WishlistPort { toggle(id, signal) }` where `id` is the **product id** (no variant id); share is owner-handled (no port — Web Share API is browser, not service). CMS/product-svc replaces demo rows at the call site (one line), callers never change.
 
 ## 9. Theme group sketch (`theme.productCard` — build task wires)
 
