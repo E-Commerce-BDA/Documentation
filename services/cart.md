@@ -612,7 +612,7 @@ codes:
 | Status | Code | When |
 |---|---|---|
 | 400 | `VALIDATION_FAILED` | bad body/query, `qty <= 0` |
-| 401 | `UNAUTHENTICATED` | no/invalid JWT and no guest session |
+| 401 | `UNAUTHENTICATED` | no/invalid JWT; guest session is valid only for cart routes |
 | 403 | `FORBIDDEN` | valid token without `customer` on wishlist, or customer on an admin route |
 | 404 | `CART_ITEM_NOT_FOUND` | item not in the caller's active cart |
 | 404 | `WISHLIST_ITEM_NOT_FOUND` | item not in the caller's wishlist |
