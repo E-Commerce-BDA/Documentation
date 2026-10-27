@@ -55,7 +55,7 @@ Admin panel / storefront        Nginx gateway                 cms-svc (:4050)
 |---|---|
 | Bootstrap | NestJS 12 on Node 24, ESM build, `/api/v1` prefix with health excluded |
 | Config | Joi-validated `NODE_ENV`, `PORT`, `MONGODB_URI`, `JWT_SECRET`, `REDIS_URL` |
-| Mongo | Global Mongoose connection, 5s server selection, fail-fast startup |
+| Mongo | Global Mongoose connection, 5s server selection, fail-fast startup (`retryAttempts: 0`) |
 | Redis | Single ioredis client, offline queue disabled, 1s connect timeout |
 | Health | `GET /health` liveness and `GET /health/ready` readiness |
 | Auth | Global JWT module, `JwtAuthGuard`, `RolesGuard`, `@Roles()` decorator |
@@ -147,11 +147,16 @@ serial (`fileParallelism: false`) because the suite owns one database.
 | `pnpm build` | clean; output includes `dist/main.js` |
 | Production smoke | `/health` `200`; `/health/ready` `200` with both dependencies up; unknown API route `404` with envelope |
 | Mongo-down smoke | `/health/ready` `503` with `mongo: "down"`, `redis: "up"` after Mongo stopped |
+| Mongo-down startup | process exits after the 5s selection timeout; no retry loop |
 
 The production smoke test caught an ESM-only issue: Mongoose’s `Connection`
 type was being emitted as a runtime import because of decorator metadata.
 Changing it to a type-only import fixed `node dist/main.js`; the full gate set
 was then re-run.
+
+A second startup smoke caught `@nestjs/mongoose`’s default retry loop.
+`retryAttempts: 0` now makes boot fail after the selection timeout instead of
+retrying for roughly 27 seconds.
 
 ## 7. Phase 2 prerequisites (open contract decisions)
 
