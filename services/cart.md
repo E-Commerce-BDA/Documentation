@@ -2,11 +2,11 @@
 
 > What this file is: the plain-language build checklist for guest/user carts,
 > wishlists, guest-to-account merge, and the cart behavior settings document.
-> Status: Active | Version 1.0 | Date: 2026-10-26
+> Status: Active | Version 1.1 | Date: 2026-10-27
 > Parent: `0.Project-Overview.md` §14 · `1.Architecture.md` §5/§9 ·
 > `3.Database-Schema.md` §3.3
-> Referenced by: `4.API-Design.md` §3.3/§4.12 · `6.Admin-Panel.md` §3.21 ·
-> `5.Features.md` A4.6 · `services/auth.md` §6
+> Referenced by: `4.API-Design.md` §3.3/§4.12/§4.13 · `6.Admin-Panel.md` §3.21 ·
+> `5.Features.md` A3.6/A4.6/A6.5 · `services/auth.md` §6
 
 Technical words appear only where the builder needs exact names (tables,
 columns, endpoint paths, error codes). Everything else is explained the way
@@ -30,6 +30,7 @@ Nginx gateway  ── strips forged x-user-id / x-roles / service keys
         │         verifies the JWT and writes trusted identity headers
         ▼
 cart-svc :4030  ── owns cart + wishlist + cart.settings
+        │         re-verifies JWT + role for wishlist/admin routes
         │
         ├── Postgres `cart` schema   (carts, cart_items, wishlists, settings, audit)
         ├── Redis                    (idempotency keys, 24h TTL)
@@ -38,6 +39,9 @@ cart-svc :4030  ── owns cart + wishlist + cart.settings
 
 - The storefront owns the guest cookie (`x-session-id`) and calls cart-svc
   through the gateway.
+- Wishlist and admin settings are role-sensitive: cart-svc verifies the JWT
+  itself and enforces `customer` or `admin`. Identity-only cart routes may
+  use the gateway's trusted `x-user-id` on the private path.
 - cart-svc never reads `catalog` tables. Product name, slug, image, variant
   label, and unit price are **snapshots** taken when the line is added.
 - `cart.updated` is published **after commit** and never awaited in the
@@ -64,26 +68,31 @@ cart behavior.
 |---|---|---|
 | Logged-in shopper | verified `Authorization: Bearer` JWT | `user_id = JWT.sub`; gateway may also set `x-user-id` on the private network |
 | Guest | `x-session-id` cookie | one active cart per session; never accept a body `session_id` |
+| Wishlist | verified JWT + `customer` role | own wishlist only; no guest wishlist; cart-svc verifies the JWT itself |
 | Admin settings | verified JWT + `admin` role | cart-svc verifies the JWT itself; `x-roles` alone is never enough |
 | Service-to-service | `x-service-key` (v1) | private network only; certificates later |
 
 - The gateway deletes client-supplied `x-user-id`, `x-roles`, and service
-  keys before forwarding. cart-svc trusts those headers only when the
-  request arrived through the private gateway path.
-- Admin routes do not rely on gateway trust. They verify the JWT signature,
-  expiry, issuer/audience (`iss: ecom-auth`, `aud: ecom-api`), and `admin`
-  role locally.
+  keys before forwarding. cart-svc trusts those headers only on the private
+  path for identity-only routes.
+- Role-sensitive routes do not rely on gateway trust. Wishlist verifies the
+  JWT signature, expiry, issuer/audience (`iss: ecom-auth`,
+  `aud: ecom-api`), and `customer` role locally; admin settings verify
+  `admin`. `x-roles` alone is never enough.
+- Ownership is enforced in SQL (`user_id = JWT.sub`), not only in a
+  controller check. A role is not ownership.
 - A guest cart is identified by `session_id`, not by a client-provided
   `user_id`. A logged-in cart is identified by `user_id`, not by a body
   field.
 - On merge, the storefront sends the user JWT **and** `x-session-id`; after
   success it clears the guest session cookie.
-- Future granular permission: `cart.write`. Until the permission catalogue
-  is seeded, the admin route enforces `admin`.
+- Future granular permissions: `cart.write`, `wishlist.write`. Until the
+  permission catalogue is seeded, wishlist enforces `customer` and admin
+  settings enforce `admin`.
 
-Rejected alternative: trust `x-roles` on admin routes because the gateway
-sets it — a direct service call or a gateway misconfiguration would become
-privilege escalation. Defense in depth wins.
+Rejected alternative: trust `x-roles` on role-sensitive routes because the
+gateway sets it — a direct service call or a gateway misconfiguration would
+become privilege escalation. Defense in depth wins.
 
 ---
 
@@ -119,6 +128,11 @@ matter to the service:
 
 - One wishlist per user (`user_id` unique).
 - One row per `(wishlist_id, product_id)`.
+- Product-level by design: no `variant_id`; variant choice happens at
+  add-to-cart.
+- Add/remove touches `wishlists.updated_at`; it is not exposed in the API.
+- No guest session column; guests use the sign-in prompt + pending product
+  id flow in §4.8.
 - Wishlist mutations do **not** emit `cart.updated`; they are not cart
   changes.
 
@@ -149,8 +163,9 @@ matter to the service:
 
 ## 4. Cart flows
 
-All endpoints are under `/api/v1/cart`. Mutations require
-`x-idempotency-key`; admin settings use `version` instead.
+All endpoints are under `/api/v1/cart`. Cart mutations require
+`x-idempotency-key`; admin settings use `version`; wishlist uses the unique
+`(wishlist_id, product_id)` constraint instead.
 
 ### 4.1 Get / ensure the active cart
 
@@ -244,11 +259,27 @@ service swap a wiring change.
 
 ### 4.8 Wishlist
 
-- `GET /wishlist` returns `{items[]}`.
-- `POST /wishlist/items` body `{productId}` → `201 {item}`; idempotent by
-  unique `(wishlist_id, product_id)`.
-- `DELETE /wishlist/items/:id` → `204`.
-- Wishlist is user-only (JWT); no guest wishlist in v1.
+Wishlist is a product-level “save for later” list for signed-in customers.
+It is not a cart and never emits `cart.updated`.
+
+- `GET /wishlist` → `200 {items[]}`. Each item is `{id, productId, addedAt}`.
+  No product snapshot is stored; the storefront hydrates name/price/image
+  from catalog by `productId`.
+- `POST /wishlist/items` body `{productId}` → `201 {item}`. The unique
+  `(wishlist_id, product_id)` makes the add idempotent: a duplicate returns
+  the existing item with the same `id` and `addedAt`.
+- `DELETE /wishlist/items/:id` → `204`. A missing or foreign item returns
+  `404 WISHLIST_ITEM_NOT_FOUND`.
+- Auth: verified JWT + `customer`; no server-side guest wishlist. A guest
+  click prompts sign-in. The storefront preserves the pending `productId`
+  through the auth redirect (`?next=` or a short-lived cookie; never
+  `localStorage`) and calls `POST /wishlist/items` after login. Duplicates
+  are a no-op.
+- Product-based, not variant-based: `variant_id` is deliberately absent;
+  the shopper chooses a variant when adding to cart.
+- One wishlist per user (`user_id` unique). Add/remove touches
+  `wishlists.updated_at`; it is not exposed in the API.
+- No `x-idempotency-key`; uniqueness is the idempotency mechanism.
 
 ---
 
@@ -495,17 +526,31 @@ a contract change, not a v1 addition.
 | `POST /cart/merge` | JWT + guest session | own carts only; idempotency key required |
 | `GET/PATCH /cart/settings` | verified JWT + `admin` | no public route; version required on PATCH |
 | `GET /cart/settings/audit` | verified JWT + `admin` | optional hardening endpoint |
-| `GET /wishlist` | JWT | own wishlist only |
+| `GET /wishlist` | verified JWT + `customer` | own wishlist only; no guest wishlist |
+| `POST /wishlist/items` | verified JWT + `customer` | own wishlist only; duplicate add returns the existing item |
+| `DELETE /wishlist/items/:id` | verified JWT + `customer` | own wishlist only; missing/foreign → 404 |
+
+Wishlist is the first customer-role route to verify the JWT in cart-svc.
+Guests are prompted to sign in; the storefront carries the pending product
+id and posts it after login.
 
 ### 7.2 Authentication and authorization
 
 - Verify JWT signature, expiry, issuer/audience (`iss: ecom-auth`,
-  `aud: ecom-api`), and required role in cart-svc. Do not rely on
-  `x-roles` alone.
+  `aud: ecom-api`), and required role/permission in cart-svc for every
+  role-sensitive route. Wishlist requires `customer`; admin settings require
+  `admin`. Do not rely on `x-roles` alone.
+- `@Roles('customer')` is intentional: an admin-only token gets `403` on
+  wishlist. An admin who shops must also hold `customer`; `RolesGuard`
+  requires every listed role.
 - The gateway strips forged identity headers; cart-svc trusts them only on
-  the private path.
-- Admin role now; `cart.write` later. A removed admin role stays valid until
-  the access token expires (15m); document this window.
+  the private path for identity-only routes. Role-sensitive routes
+  re-verify and never use `x-roles` as authorization.
+- Enforce ownership in SQL (`user_id = JWT.sub`), not only in a controller
+  check. A role is not ownership.
+- Admin/customer roles now; `cart.write`/`wishlist.write` later. A removed
+  role stays valid until the access token expires (15m); document this
+  window.
 - Direct service calls require `x-service-key` and the private network.
 - Never accept `user_id`, `session_id`, `role`, or `updated_by` from a
   request body.
@@ -563,8 +608,9 @@ codes:
 |---|---|---|
 | 400 | `VALIDATION_FAILED` | bad body/query, `qty <= 0` |
 | 401 | `UNAUTHENTICATED` | no/invalid JWT and no guest session |
-| 403 | `FORBIDDEN` | customer calls an admin route |
+| 403 | `FORBIDDEN` | valid token without `customer` on wishlist, or customer on an admin route |
 | 404 | `CART_ITEM_NOT_FOUND` | item not in the caller's active cart |
+| 404 | `WISHLIST_ITEM_NOT_FOUND` | item not in the caller's wishlist |
 | 409 | `IDEMPOTENCY_CONFLICT` | same key, different body |
 | 409 | `SETTINGS_VERSION_CONFLICT` | stale settings `version` |
 | 400 | `UNKNOWN_SETTING` | key not in the registry |
@@ -635,6 +681,8 @@ codes:
 - Merge policy selection and edge rules (only guest, only user, both empty,
   null variant, matching line, guest-wins reassignment).
 - Idempotency replay/conflict logic.
+- Wishlist: duplicate add returns the existing item; foreign/missing delete;
+  product-level uniqueness; `updated_at` touch.
 
 ### E2E / contract
 
@@ -647,7 +695,12 @@ codes:
   retry is a no-op.
 - Settings: admin GET/PATCH, 401/403, unknown key, invalid value, reset,
   stale version 409, audit row, `no-store`, no public route.
-- Header spoofing: `x-user-id`/`x-roles` without a valid JWT → 401/403.
+- Wishlist: customer 200; admin-only/no-role 403; guest 401; empty list;
+  add; duplicate 201 same item and one row; product-level uniqueness across
+  variants; foreign/missing delete 404; remove 204; no `cart.updated`; no
+  snapshot; `updated_at` touched.
+- Header spoofing: `x-user-id`/`x-roles` without a valid JWT → 401/403;
+  role-sensitive routes re-verify the JWT.
 - Idempotency: same key returns the stored response; different body → 409;
   Redis down → 503 for mutations.
 - Schema: six tables, indexes, triggers, seed idempotency; re-running
@@ -673,7 +726,9 @@ codes:
 | `ask_customer` policy | needs preview + choice UI | later phase; not in the v1 enum |
 | Audit read endpoint | write audit now; read later | hardening phase |
 | Settings cache | merge traffic is low | versioned cache key later |
-| `cart.write` permission | auth permission catalogue empty | seed permission + guard later |
+| `cart.write` / `wishlist.write` permissions | auth permission catalogue empty | seed permissions + guards later |
+| Server-side guest wishlist | needs session-scoped rows, merge, TTL; guests use sign-in prompt + pending product id | separate feature |
+| Wishlist catalog validation | catalog-svc absent; current phase validates `productId` shape only | validate/hydrate when catalog adapter lands |
 | Abandonment worker | TTL scan is a separate job | `last_activity_at` is ready |
 | Currency | store-level setting later | do not add a cart column |
 
@@ -683,9 +738,9 @@ codes:
 
 - Tables, indexes, triggers: `3.Database-Schema.md` §3.3.
 - Endpoints, envelopes, idempotency, rate limits: `4.API-Design.md` §1.5–
-  1.7, §3.3, §4.7, §4.12.
+  1.7, §3.3, §4.7, §4.12, §4.13.
 - Admin route and screen: `6.Admin-Panel.md` §2.2, §3.21.
-- Shopper acceptance: `5.Features.md` A4.6–A4.7.
+- Shopper acceptance: `5.Features.md` A3.6, A4.6–A4.7, A6.5.
 - Auth identity, token delivery, merge hand-off: `services/auth.md` §1–6.
 - Test gates: `9.Testing.md` §3.3.
 - Tracker: `state-for-agents/tasks.json` (`ca-002`–`ca-006`) and
