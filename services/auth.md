@@ -3,7 +3,7 @@
 > What this file is: the plain-language build checklist for login, signup,
 > sessions, and logout. First per-service backend doc — the other 8
 > services copy this shape later.
-> Status: Active | Version 1.1 | Date: 2026-10-23
+> Status: Active | Version 1.2 | Date: 2026-10-27
 > Parent: `0.Project-Overview.md` §14 · `1.Architecture.md` §5/§9
 > Referenced by: `pages/auth.md` (frontend companion, to create)
 
