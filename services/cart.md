@@ -130,7 +130,9 @@ matter to the service:
 - One row per `(wishlist_id, product_id)`.
 - Product-level by design: no `variant_id`; variant choice happens at
   add-to-cart.
-- Add/remove touches `wishlists.updated_at`; it is not exposed in the API.
+- Add/remove touches `wishlists.updated_at` in the same transaction; it is
+  not exposed in the API. The existing trigger covers direct wishlist-row
+  updates only.
 - No guest session column; guests use the sign-in prompt + pending product
   id flow in §4.8.
 - Wishlist mutations do **not** emit `cart.updated`; they are not cart
@@ -278,7 +280,8 @@ It is not a cart and never emits `cart.updated`.
 - Product-based, not variant-based: `variant_id` is deliberately absent;
   the shopper chooses a variant when adding to cart.
 - One wishlist per user (`user_id` unique). Add/remove touches
-  `wishlists.updated_at`; it is not exposed in the API.
+  `wishlists.updated_at` in the same transaction; it is not exposed in the
+  API. The existing trigger covers direct wishlist-row updates only.
 - No `x-idempotency-key`; uniqueness is the idempotency mechanism.
 
 ---
