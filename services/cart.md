@@ -264,10 +264,12 @@ service swap a wiring change.
 Wishlist is a product-level “save for later” list for signed-in customers.
 It is not a cart and never emits `cart.updated`.
 
-- `GET /wishlist` → `200 {items[]}`. Each item is `{id, productId, addedAt}`.
-  No product snapshot is stored; the storefront hydrates name/price/image
-  from catalog by `productId`.
-- `POST /wishlist/items` body `{productId}` → `201 {item}`. The unique
+- `GET /wishlist` → `200 {items[]}`; an empty list is valid when the user
+  has no wishlist row, and `GET` does not create one. Each item is
+  `{id, productId, addedAt}`. No product snapshot is stored; the storefront
+  hydrates name/price/image from catalog by `productId`.
+- `POST /wishlist/items` body `{productId}` → `201 {item}`; creates the
+  wishlist row lazily. The unique
   `(wishlist_id, product_id)` makes the add idempotent: a duplicate returns
   the existing item with the same `id` and `addedAt`.
 - `DELETE /wishlist/items/:id` → `204`. A missing or foreign item returns
