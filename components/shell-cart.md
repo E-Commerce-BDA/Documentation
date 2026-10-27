@@ -1,7 +1,7 @@
 # Shell + cart blocks — purpose, mount rule, residents
 
 > Scope: `frontend/storefront/components/shell/*` (production composed-dumb chrome) + cart blocks when the cart slice lands.
-> Status: Active | Version 1.0 | Date: 2026-10-11
+> Status: Active | Version 1.1 | Date: 2026-10-27
 > Parent: `components/README.md` (index + conventions)
 
 ---
@@ -35,7 +35,7 @@
 | NavLogo | `components/shell/NavLogo.tsx` | Image or wordmark; anchor announces it |
 | NavSearchTrigger | `components/shell/NavSearchTrigger.tsx` | Search glyph; hover/focus preloads the overlay chunk |
 | NavAccountButton | `components/shell/NavAccountButton.tsx` | User glyph; menu deferred (no menu primitive) |
-| NavWishlistButton | `components/shell/NavWishlistButton.tsx` | Heart + capped count badge |
+| NavWishlistButton | `components/shell/NavWishlistButton.tsx` | Heart + capped count badge; guest click prompts sign-in (no guest wishlist) |
 | MobileDrawer | `components/shell/MobileDrawer.tsx` | Slide panel + NavLinks; trap + Esc (parent owns open) |
 | Navbar | `components/shell/Navbar.tsx` | Regions-gated composition; --nb-* inline; zero state |
 | NavbarMount | `app/_components/NavbarMount.tsx` | Owns disclosure/dismiss/slides/scroll-hide/autoplay; auth self-suppress |
