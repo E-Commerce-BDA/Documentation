@@ -19,9 +19,9 @@ Think of the shop's security like a mall with one main entrance:
 
 ```
 Shopper's browser          Main entrance (Nginx gateway)         Shops inside (services)
-(cookies in a               Checks the stamp, hands out           Trust the entrance's
- locked box the              a fresh name badge, sends            word — they never
- page can't open)            you to the right shop               check IDs themselves
+(cookies in a               Checks the stamp, hands out           Trust gateway identity;
+ locked box the              a fresh name badge, sends            role-sensitive routes
+ page can't open)            you to the right shop               re-check JWT + role locally
         │                             │                                    │
         │   locked box (login)        │  ┌──────────────┐                  │
         └────────────────────────────►│  │  auth-svc    │                  │
@@ -39,19 +39,20 @@ Shopper's browser          Main entrance (Nginx gateway)         Shops inside (s
   storefront flow the server-side BFF receives that response and sets the
   access/refresh tokens as HttpOnly cookies; the browser never receives
   them directly. Direct API clients use `Authorization: Bearer`.
-* The **gateway (Nginx)** is the only one that checks stamps. It throws
-  away any name badge a visitor made themselves, verifies the real stamp,
-  and writes a fresh trusted badge (`x-user-id`, `x-roles`) for the shops
-  inside. It also stamps every visit with a tracking number
-  (`x-request-id`) so any complaint can be traced.
+* The **gateway (Nginx)** is the first line: it throws away any name badge
+  a visitor made themselves, verifies the real stamp, and writes a fresh
+  trusted badge (`x-user-id`, `x-roles`) for the shops inside. It also
+  stamps every visit with a tracking number (`x-request-id`) so any
+  complaint can be traced.
 * **auth-svc** is the ID office: it makes the stamps, keeps the filing
   cabinet (Postgres), and answers "is this ticket still good?".
-* The other shops (cart, order, cms) **never check IDs** for customer
-  routes — they trust the entrance's badge. They sit behind a staff-only
-  door (service key now, certificates later) on a private corridor no
-  shopper can enter. The cart admin settings route is the exception: it
-  verifies the JWT itself and requires the `admin` role, so a forged
-  `x-roles` header is not enough.
+* The other shops (cart, order, cms) trust the gateway's badge for
+  identity-only routes. Role-sensitive routes re-verify the JWT in the
+  owning service and enforce the role/permission themselves; they never
+  trust `x-roles` alone. Wishlist (`customer`) is the first customer-role
+  route; cart admin settings (`admin`) already do this. They sit behind a
+  staff-only door (service key now, certificates later) on a private
+  corridor no shopper can enter.
 
 ## 2. The two tokens, in plain words
 
@@ -82,9 +83,12 @@ rarely (so it can afford a cabinet lookup and can be cancelled on demand).
 * **P3 — Mind the entrance.** Fresh badges only after a passed check;
   scrub upstream error pages into a plain envelope + tracking number;
   speed limits: login/refresh 10 per second, checkout 5, normal reads 30.
-* **P4 — Shops trust the entrance, not visitors.** Staff-only door key
-  today (long random string, locked file permissions), certificates
-  between shops later. Shops bind to the private corridor only.
+* **P4 — Shops trust the entrance for identity, not for roles.** Staff-only
+  door key today (long random string, locked file permissions),
+  certificates between shops later. Shops bind to the private corridor
+  only. Role-sensitive routes re-verify the JWT and check the
+  role/permission themselves; never trust `x-roles`. Registration assigns
+  `customer`; an admin who shops must also hold `customer`.
 * **P5 — Keys live in safes, not notebooks.** Secrets in locked files on
   the server (later a secret manager). Nothing secret in git, in logs,
   or in error messages shown to shoppers.
