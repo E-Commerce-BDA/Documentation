@@ -267,9 +267,56 @@ A blog post in `cms_blogs` renders an editorial article:
 - **Usage enum:** `section`, `blog`, `page`, `brand`, `category`, `other`. Product images stay catalog-owned.
 - **In-use guard:** `DELETE /admin/media/:id` queries `cms_sections`, `cms_pages`, and `cms_blogs`. If the image URL or key is referenced anywhere, deletion is rejected with `409 MEDIA_IN_USE`.
 
-## 11. MongoDB Atlas backup runbook
+## 11. MongoDB Atlas backup & restore runbook
 
-- **Staging M0 (Free Tier):** Nightly `mongodump` archived to S3; 7-day retention policy.
-- **Production M0 (Free Tier):** Hourly `mongodump` archived to S3; 30-day retention policy; RPO ≤ 1h, RTO ≤ 30m.
-- **Upgrade threshold:** When total database size exceeds 350 MB (70% of the 512 MB M0 limit) or when business demands RPO < 1h, upgrade to M10 with dedicated continuous Cloud Backups (Point-in-Time Recovery).
+### 11.1 Backup policies & tiers
+
+- **Staging M0 (Free Tier):** Nightly `mongodump` archived and encrypted to S3; 7-day retention policy.
+- **Production M0 (Free Tier):** Hourly `mongodump` archived and encrypted to S3; 30-day retention policy; RPO ≤ 1h, RTO ≤ 30m.
+- **Upgrade threshold:** When total database storage exceeds 350 MB (70% of the 512 MB M0 quota) or when compliance/business requires RPO < 1h, upgrade cluster to **M10 Dedicated** with native Atlas Continuous Cloud Backups (Point-in-Time Recovery / PITR).
+
+### 11.2 Operational commands
+
+#### A. Automated backup execution
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+TIMESTAMP=$(date -u +"%Y%m%d_%H%M%SZ")
+BACKUP_FILE="cms_backup_${TIMESTAMP}.gz"
+
+echo "Starting cms-svc backup: ${BACKUP_FILE}"
+mongodump --uri="${MONGODB_URI}" --archive="${BACKUP_FILE}" --gzip
+
+echo "Uploading to S3..."
+aws s3 cp "${BACKUP_FILE}" "s3://${BACKUP_S3_BUCKET}/cms/hourly/${BACKUP_FILE}" --sse AES256
+
+rm -f "${BACKUP_FILE}"
+echo "Backup complete: s3://${BACKUP_S3_BUCKET}/cms/hourly/${BACKUP_FILE}"
+```
+
+#### B. Disaster recovery & restore drill
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+BACKUP_FILE="$1" # e.g. cms_backup_20261028_120000Z.gz
+
+echo "Downloading backup from S3: ${BACKUP_FILE}..."
+aws s3 cp "s3://${BACKUP_S3_BUCKET}/cms/hourly/${BACKUP_FILE}" "${BACKUP_FILE}"
+
+echo "Restoring database (with --drop to wipe corrupted collections)..."
+mongorestore --uri="${TARGET_MONGODB_URI}" --archive="${BACKUP_FILE}" --gzip --drop
+
+rm -f "${BACKUP_FILE}"
+echo "Restore complete and verified."
+```
+
+### 11.3 Verification & drill schedule
+
+1. **Monthly Restore Drill:** Once a month, the DevOps/Platform agent downloads the latest production archive and restores it into an isolated test cluster (`ecom_cms_drill`), verifying:
+   - `cms_meta` singleton document exists and revision counter matches.
+   - `cms_sections`, `cms_settings`, `cms_page_settings`, `cms_navigation`, `cms_pages`, `cms_blogs`, `cms_blog_categories`, and `cms_media` record counts match source.
+   - Unique and compound indexes are restored without corruption.
+2. **Log Alerting:** Any failed backup cron triggers a high-priority PagerDuty / Slack alert (`cms.backup.failed`).
 
