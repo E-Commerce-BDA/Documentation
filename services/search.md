@@ -356,3 +356,4 @@ If a cursor generated for `"shoes"` is supplied with query `"shirts"`, the servi
 - `INDEX_BATCH_TOO_LARGE` (400)
 - `SERVICE_KEY_INVALID` (401 / 403)
 - `SEARCH_UNAVAILABLE` (503)
+
