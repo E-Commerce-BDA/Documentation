@@ -2,8 +2,9 @@
 
 > What this file is: the plain-language build checklist for CMS content:
 > sections, global and per-section settings, navigation/megamenu, blogs, and
-> theme configuration. Phase 1 covers the service foundation only.
-> Status: Active | Version 1.0 | Date: 2026-10-27
+> theme configuration. Phase 1 covers the service foundation; Phase 2 starts
+> with the settled contracts and section catalog below.
+> Status: Active | Version 1.1 | Date: 2026-10-28
 > Parent: `0.Project-Overview.md` §14 · `1.Architecture.md` §5/§9 · `3.Database-Schema.md` §4
 > Referenced by: `6.Admin-Panel.md`, `pages/home.md` (to create)
 
@@ -45,9 +46,12 @@ Admin panel / storefront        Nginx gateway                 cms-svc (:4050)
 * **The gateway owns identity.** `cms-svc` verifies the access token itself
   on role-sensitive routes and never trusts a raw `x-roles` header. Phase 1
   provides the guard plumbing; no CMS route is protected yet.
-* **Save equals publish in v1.** There is no draft/publish workflow in the
-  first CMS release. Public reads see the latest saved content. Draft
-  filtering is a Phase 2 contract decision, not a Phase 1 behavior.
+* **Save equals publish in v1, except blogs.** Sections, global and
+  per-section settings, navigation/theme, and pages publish on save.
+  `isActive` is a visibility/publish switch, not a separate draft copy.
+  Blogs keep a real `status: draft | published` workflow. Public reads filter
+  inactive sections/pages and draft blogs in the Mongo query, never after
+  fetching.
 
 ## 2. What Phase 1 includes
 
@@ -65,7 +69,8 @@ Admin panel / storefront        Nginx gateway                 cms-svc (:4050)
 
 Deliberately **not** in Phase 1: CMS collections/models, content endpoints,
 Zod request/response schemas, event publishing, S3/media handling, and the
-app Dockerfile. Those start in Phase 2/3 after the contract decisions in §7.
+app Dockerfile. Those start in Phase 2 after the settled decisions in §7 and
+the section catalog in §8.
 
 ## 3. Health probes
 
@@ -158,18 +163,82 @@ A second startup smoke caught `@nestjs/mongoose`’s default retry loop.
 `retryAttempts: 0` now makes boot fail after the selection timeout instead of
 retrying for roughly 27 seconds.
 
-## 7. Phase 2 prerequisites (open contract decisions)
+## 7. Phase 2 decisions (settled 2026-10-28)
 
-Phase 2 must not start until these are settled:
+| # | Decision | Locked outcome |
+|---|---|---|
+| 1 | `@ecom/contracts` | New `ecom-contracts` repo; package `@ecom/contracts@1.0.0`; exact pin; GitHub Release tarball on `v*` tag; ESM + `.d.ts`; Zod 4 peer. |
+| 2 | Sections/settings API | Sparse overrides only; storefront resolver remains the merge authority. Public reads return `{sections, version}`, `{theme, version}`, `{navbar, version}`, `{settings, version}`. `version` is the global CMS revision. Admin section reads use `/admin/sections`. Page-scoped auth settings use `/settings/page/:pageKey`. |
+| 3 | Nav/theme shape | Contracts own admin payload types based on the storefront `NavSettings` + `shared.megamenu`; theme is `tokens` (colors/radii/photo/typography) plus the existing storefront component groups. Storefront imports payload types; resolved types stay local. |
+| 4 | Media | One shared bucket per env (`ecom-media-{env}`); cms-svc owns the `media` collection and `media/` prefix. Backend multipart upload; PNG/JPEG/WebP/AVIF only; 10 MB; no SVG in v1. `media.resize-image` job writes width/format variants. Product images remain catalog-owned URLs. |
+| 5 | Atlas backup | Staging M0: nightly `mongodump` to S3, 7-day retention. Production M0: hourly dumps, 30-day retention, RPO ≤1h/RTO ≤30m. Upgrade to M10 + PITR at >350 MB (70% of M0) or when RPO <1h is required. |
+| 6 | Draft filtering | Save = publish for sections/settings/nav/theme and pages (`isActive` is the publish switch). Blogs keep `status: draft/published`. Public reads filter in Mongo; admin reads are separate and role-guarded. |
 
-1. `@ecom/contracts` package name, version, and publish workflow.
-2. Sections/settings API shape: global vs per-section override payloads,
-   version field, and cache-buster semantics.
-3. Navigation/megamenu and theme shape shared with the storefront.
-4. Media scope: S3 upload/ownership model and `media.resize-image` task
-   contract.
-5. Atlas backup/restore strategy for staging and production.
-6. Public draft filtering: confirm save-equals-publish for v1 or introduce a
-   draft state before the first public read endpoint.
+Exact schemas and the section governance catalog live in
+`E:/E-Commerce/ecom-contracts/README.md`. `Documentation/8.Versioning.md` is
+created with the contracts release.
 
-Until then, the service stays a verified foundation with no CMS domain code.
+## 8. CMS section catalog v1
+
+A **CMS section** is a page-body block stored in `cms_sections`, rendered in
+`sort_order`. It is not the shell, not a navigation entry, and not a
+product/category/brand record.
+
+### 8.1 Types and admin-editable content
+
+| Type | Admin-editable content | Allowed `settings` overrides |
+|---|---|---|
+| `hero` | `slides[]` (0–12): `id`, `headline`, `image`, `imageAlt?`, `eyebrow?`, `subcopy?`, `bgColor?`, `textColor?`, `imageBgColor?`, `ctas?`, `split?`, `flip?`, `ratio?` | `bgColor`, `blendMode`, `ratio`, `customRatio` |
+| `banner` | `title?`, `subcopy?`, `image`, `imageAlt?`, `bgColor?`, `align?`, `ctas?` | `bgColor`, `blendMode` |
+| `featured_products` | `title?`, `productIds?` (ordered, max 24), `layout?` (`grid`/`carousel`) | `bgColor`, `blendMode`, `ratio`, `customRatio`, `gutter`, `showPhotos`, `maxItems` |
+| `category_showcase` | `title?`, `categoryIds?` (ordered, max 12) | `bgColor`, `blendMode`, `ratio`, `customRatio`, `gutter`, `showPhotos`, `maxItems` |
+| `brand_strip` | `title?`, `brandIds?` (ordered, max 24) | `bgColor`, `blendMode`, `gutter`, `maxItems` |
+| `blog_teaser` | `title?`, `postIds?` (ordered, max 12), `count?` (1–12) | `bgColor`, `blendMode`, `gutter`, `maxItems` |
+| `testimonial` | `title?`, `items?` (max 12): `id`, `quote`, `name`, `role?`, `avatar?` | `bgColor`, `blendMode`, `gutter`, `maxItems` |
+
+`brand_strip` is canonical; the older `brands` value is a legacy alias
+normalized before validation. Empty content is valid but skipped by the
+storefront. Unknown section types are rejected on write and skipped on read.
+
+### 8.2 What the admin can and cannot modify
+
+| Field / action | Rule |
+|---|---|
+| Create, delete, reorder, activate/deactivate | Allowed for the seven types. Creates append; reorder is its own endpoint. |
+| `key`, `pageKey`, `type` | Create-only and immutable afterwards. A move/type change = create + delete. |
+| `title` | Editable; admin-facing label only. |
+| `content` | Editable per the type schema above. |
+| `settings` | Editable only within the type allowlist; omit a key to inherit; `null` is rejected. |
+| `sortOrder` | Not directly editable; only via reorder. |
+| `isActive` | Editable visibility toggle; public reads filter it. |
+| `createdAt`, `updatedAt`, `version` | Server-managed, read-only. |
+
+Explicitly **not** CMS-managed inside a section: raw HTML/CSS/JS/iframes,
+new section types, arbitrary settings keys, product/category/brand/blog
+records, prices/stock/availability, page routing/SEO/blocks, navbar/footer
+shell, auth/checkout/cart behavior, and media binary lifecycle. Sections store
+ordered references and media keys/URLs only.
+
+### 8.3 Public filtering
+
+- Public `GET /sections?pageKey=` returns `isActive: true` only, sorted by
+  `sortOrder`.
+- Admin `GET /admin/sections?pageKey=` returns all sections.
+- Removing all sections is valid; the homepage renders its minimal shell.
+- Inactive sections remain in Mongo and are visible to admin only.
+
+## 9. Phase 2 build order
+
+1. **2.0 Contracts** — create `ecom-contracts`, add section/CTA schemas and
+   catalog, build/test/pack, release `1.0.0`.
+2. **2.1 cms-svc foundation** — models, Zod pipe, revision service, cache
+   service, event port, error codes.
+3. **2.2 Sections/settings/nav/theme** — public reads, admin CRUD/reorder,
+   page-scoped auth settings, cache invalidation, `cms.updated`.
+4. **2.3 Pages/blogs** — active/published filters, cursor pagination,
+   `blog.updated`.
+5. **2.4 Media** — S3/MinIO adapter, upload/list/delete, in-use guard,
+   `media.resize-image` worker.
+6. **2.5 Storefront wiring** — contracts types, nav/theme fetch, auth settings
+   endpoint, fallback-to-builtins.
+7. **2.6 Docs/tests** — API/schema docs, backup runbook, unit/e2e/smoke gates.
