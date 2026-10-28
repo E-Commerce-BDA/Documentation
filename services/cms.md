@@ -237,8 +237,39 @@ ordered references and media keys/URLs only.
    page-scoped auth settings, cache invalidation, `cms.updated`.
 4. **2.3 Pages/blogs** — active/published filters, cursor pagination,
    `blog.updated`.
-5. **2.4 Media** — S3/MinIO adapter, upload/list/delete, in-use guard,
-   `media.resize-image` worker.
+5. **2.4 Media** — StoragePort interface + local disk adapter, upload/list/delete,
+   in-use guard, `media.resize-image` worker.
 6. **2.5 Storefront wiring** — contracts types, nav/theme fetch, auth settings
    endpoint, fallback-to-builtins.
 7. **2.6 Docs/tests** — API/schema docs, backup runbook, unit/e2e/smoke gates.
+
+## 10. Page blocks, blog blocks, and media governance
+
+### 10.1 Page blocks v1 (locked union)
+A page document in `cms_pages` renders structured blocks. Raw HTML/CSS/iframes/scripts are forbidden.
+- `rich_text`: `{ id: string, body: string }`
+- `image`: `{ id: string, url: string, alt?: string, caption?: string }`
+- `cta`: `{ id: string, title: string, ctas: Cta[0..3] }`
+- `faq`: `{ id: string, items: { question: string, answer: string }[] }`
+
+### 10.2 Blog blocks v1 (locked union)
+A blog post in `cms_blogs` renders an editorial article:
+- `heading`: `{ id: string, text: string, level: 1 | 2 | 3 | 4 }`
+- `paragraph`: `{ id: string, text: string }`
+- `image`: `{ id: string, url: string, alt?: string, caption?: string }`
+- `quote`: `{ id: string, quote: string, cite?: string }`
+- Blog lifecycle: `status: 'draft' | 'published'`. Public reads strictly filter `status: 'published'`. `blog.updated` emits on publish and update.
+
+### 10.3 Media governance
+- **Allowed MIME types:** `image/png`, `image/jpeg`, `image/webp`, `image/avif`. SVG and executables are rejected.
+- **Max file size:** 10 MB.
+- **Storage key format:** `media/{yyyy}/{mm}/{uuid}.{ext}`.
+- **Usage enum:** `section`, `blog`, `page`, `brand`, `category`, `other`. Product images stay catalog-owned.
+- **In-use guard:** `DELETE /admin/media/:id` queries `cms_sections`, `cms_pages`, and `cms_blogs`. If the image URL or key is referenced anywhere, deletion is rejected with `409 MEDIA_IN_USE`.
+
+## 11. MongoDB Atlas backup runbook
+
+- **Staging M0 (Free Tier):** Nightly `mongodump` archived to S3; 7-day retention policy.
+- **Production M0 (Free Tier):** Hourly `mongodump` archived to S3; 30-day retention policy; RPO ≤ 1h, RTO ≤ 30m.
+- **Upgrade threshold:** When total database size exceeds 350 MB (70% of the 512 MB M0 limit) or when business demands RPO < 1h, upgrade to M10 with dedicated continuous Cloud Backups (Point-in-Time Recovery).
+
