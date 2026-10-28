@@ -53,7 +53,7 @@ The hero holds an ordered array of slides. The admin can add, remove, duplicate,
 - **1 slide:** rendered as a static block. No navigation chrome (no dots, no arrows). This is the default and the simplest case.
 - **>1 slide:** rendered as a manual slider. No autoplay. Navigation: dots (one per slide) centered below the hero plus prev/next arrow buttons on the left/right edges. Dots and arrows are always visible when >1 slide; they do not auto-hide. Keyboard: left/right arrows switch slides; focus stays on the hero.
 
-Slide object shape (stored in `cms_sections.content.slides[]` for `type=hero`; Zod-validated via `shared/src/schemas/cta.schema.ts`):
+Slide object shape (stored in `cms_sections.content.slides[]` for `type=hero`; Zod-validated via `@ecom/contracts`):
 
 ```json
 {
