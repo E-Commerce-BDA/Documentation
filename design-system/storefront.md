@@ -254,4 +254,4 @@ Shell: `Announcement 36px` → `Navbar 64px sticky` → `Hero min-height 540px (
 
 - Prototype (source of truth): `E:\E-Commerce\index.html` — Oceanic Blue v1.0 · Fraunces + Outfit · gradient hero · peek deck · wave CTAs · hero slide background gradients (Warm Sunrise / Sage Cloud / Aurora, §7.7)
 - CMS: `docs/6.Admin-Panel.md` §4 · `docs/3.Database-Schema.md` §4.1 (`cms_settings.theme`, `cms_sections` `Slide{ctas[0..3]}`) · `docs/pages/home.md` §3
-- Implementation: `frontend/storefront/src/app/globals.css`, `layout.tsx`, `lib/cms/resolve.ts`, `lib/api-client/cms.ts`, `shared/src/schemas/cta.schema.ts`
+- Implementation: `frontend/storefront/src/app/globals.css`, `layout.tsx`, `lib/cms/resolve.ts`, `lib/api-client/cms.ts`, `@ecom/contracts`
