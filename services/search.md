@@ -73,7 +73,7 @@ Kafka event spine ────────────────────�
 CREATE SCHEMA IF NOT EXISTS search;
 
 CREATE TABLE IF NOT EXISTS search.search_documents (
-  id uuid PRIMARY KEY,
+  id varchar(64) PRIMARY KEY,
   document_type varchar(20) NOT NULL
     CHECK (document_type IN ('product', 'category', 'blog')),
   title varchar(255) NOT NULL,
@@ -179,6 +179,11 @@ Typeahead endpoint for storefront search bars.
 ```
 
 **Cache header:** `Cache-Control: public, max-age=60, stale-while-revalidate=300`
+
+**Errors:**
+- `400 QUERY_TOO_SHORT`: `q` missing, empty, or shorter than 2 characters.
+- `400 QUERY_INVALID`: `q` longer than 100 characters or containing no searchable letters/digits after punctuation stripping.
+- `400 INVALID_FILTER`: `limit` not an integer between 1 and 10, or unexpected query parameters provided.
 
 ---
 
@@ -306,10 +311,11 @@ Returns summary statistics for the search index. Requires header `x-service-key`
 
 ### 6.1 Query Normalization (`normalizeQuery`)
 1. Trim leading and trailing whitespace.
-2. Convert to lowercase.
-3. Collapse consecutive whitespace into single spaces.
-4. Strip PostgreSQL `tsquery` operators: `& | ! ( ) : *`.
-5. Enforce length: 2 to 100 characters.
+2. Enforce input string type and initial length bounds (2 to 100 characters).
+3. Convert to lowercase.
+4. Replace punctuation and symbols (`[^\p{L}\p{N}\s]`) with spaces.
+5. Collapse consecutive whitespace into single spaces.
+6. Enforce post-sanitization length (reject strings that reduce to empty or < 2 characters with `QUERY_INVALID`).
 
 ### 6.2 Prefix Query Builder (`toPrefixTsQuery`)
 Transforms `"run shoe"` into `"run:* & shoe:*"`. This allows typeahead prefix matching while avoiding raw user string injection into PostgreSQL's query parser.
