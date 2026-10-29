@@ -341,7 +341,9 @@ If a cursor generated for `"shoes"` is supplied with query `"shirts"`, the servi
 - **Suggest Cache:** Redis key `search:suggest:{normalizedQ}` with 600s (10m) TTL.
   - Cached only for standard `limit=5` requests.
   - On Redis failure, the service logs a warning and queries PostgreSQL directly.
-- **Search Query Cache:** None in v1. High combinatorial cardinality of filters, sorting, and pagination makes caching inefficient. PostgreSQL FTS with GIN indexes satisfies P99 < 250ms target.
+- **Search Query Cache:** None in v1. High combinatorial cardinality of filters, sorting, and pagination makes caching inefficient. PostgreSQL FTS with GIN indexes satisfies P99 < 250ms target. Measured seed performance with `EXPLAIN (ANALYZE, BUFFERS)`:
+  - `GET /search` (relevance ranked + keyset cursor + count CTE): **0.153 ms** execution time.
+  - `GET /suggest` (window aggregation early exit `rn <= 5`): **0.219 ms** execution time.
 
 ---
 
