@@ -27,38 +27,39 @@ Customer's Browser / BFF          Nginx API Gateway               order-svc (:40
         │    x-idempotency-key            │─── Forward ─────────────────►│
                                                                          │
                     ┌────────────────────────────────────────────────────┤
-                    │ 1. Check Redis idempotency (idem:{key})            │
+                    │ 1. Redis replay cache, then the orders row         │
+                    │    (idem:{userId}:checkout:{key})                  │
                     │ 2. Pre-reserve stock via catalog-svc (:4020)       │
-                    │ 3. Validate coupon & clamp discount                │
-                    │ 4. Authorize & capture payment                     │
-                    │ 5. Atomic single PostgreSQL transaction:           │
-                    │    - Insert orders & snapshot order_items          │
-                    │    - Insert order_status_history                   │
-                    │    - Insert payments                               │
-                    │    - Increment discount_codes uses_count           │
-                    │    - Write order.created to outbox table           │
-                    │ 6. Cache idempotency response in Redis (24h)       │
-                    │ 7. Best-effort clear cart via cart-svc (:4030)     │
+                    │ 3. Coupon, discount clamp, price snapshots         │
+                    │ 4. TX1: orders(status=pending), items,             │
+                    │    history, payments(pending), key + hash          │
+                    │ 5. Capture payment (order exists now)              │
+                    │ 6. TX2: payments→captured, orders→                 │
+                    │    confirmed/paid, history, outbox row             │
+                    │ 7. Cache + unlock + best-effort cart clear         │
                     ▼                                                    ▼
               PostgreSQL :5433                                      Redis :6379
-          Schema "order" (7 tables)                             Idempotency & Locks
+          Schema "order" (8 tables)                         Replay cache & Locks
 ```
 
-* **Idempotency first**: Double-clicking the "Place Order" button never double-charges the customer or duplicates database records. A Redis concurrency lock (`idem:{key}:lock`, 60s) blocks race conditions, while the cached response (`idem:{key}`, 24h) replays the original order confirmation instantly.
-* **Pre-transaction stock reservation**: `order-svc` reserves stock with `catalog-svc` *before* opening its local PostgreSQL transaction, preventing external HTTP latency from holding open database connections. If payment or database insertion fails, a compensation call (`POST /internal/stock/release`) releases the hold.
-* **Transactional outbox guarantee**: The order row and its `order.created` event row are written inside the *exact same* SQL transaction. The Dual-Write Problem is eliminated: an order cannot exist without its event, and an event cannot exist without its order.
+* **Idempotency first**: Double-clicking the "Place Order" button never double-charges the customer or duplicates database records. The key is scoped `idem:{userId}:checkout:{key}`: a short-lived Redis lock (`:lock`, 60 s) blocks the race, the cached confirmation (`idem:…`, 24 h) replays the receipt, and a **partial unique index on `orders (user_id, idempotency_key)`** is the real authority — a crash between `COMMIT` and `REDIS SET` still replays from the order row, and another user's key can never reach this user's order. A Redis outage before the first write is a retryable `503 IDEMPOTENCY_UNAVAILABLE`; after the commit it is only a warning, because the order is already durable.
+* **Pending-first payment saga**: The order row is written as `pending` *before* the provider is called, so money is never captured for an order that does not exist. A declined capture closes the attempt (`failed`, hold released, `402 PAYMENT_FAILED`); a failure after a successful capture is refunded through the provider and then closed (`503 PAYMENT_PERSIST_FAILED`); a provider that cannot be reached leaves the order `pending`, so retrying the same key resumes the saga instead of starting a second one.
+* **Pre-transaction stock reservation**: `order-svc` reserves stock with `catalog-svc` *before* opening TX1, preventing external HTTP latency from holding open database connections. The hold must precede the order row, because the row is the first durable write and a pending order with no hold could be confirmed against stock that was never reserved. Any failure after the hold releases it with `POST /internal/stock/release { reservationId }`, and a terminal transition (`cancelled`, `failed`) releases it again from the order row — a retry can never inflate stock because no quantities are sent.
+* **Transactional outbox guarantee**: The order row and its `order.created` event row are written inside the *exact same* SQL transaction (TX2). The Dual-Write Problem is eliminated: an order cannot exist without its event, and an event cannot exist without its order.
 * **Asynchronous relay worker**: A background worker polls pending events from `order.outbox` using partial index `idx_outbox_pending`, publishes them, and marks them `published`.
 
 ---
 
 ## 2. Core Concepts in Plain Words
 
-* **Idempotency Key (`x-idempotency-key`).** A unique ticket number generated by the checkout button. If network hiccups cause the customer's phone to retry the request 3 times, `order-svc` executes the checkout once, caches the result alongside a SHA-256 hash of the payload, and replays the receipt on retries. If an attacker reuses the key with different items, `order-svc` rejects it with `409 Conflict`.
+* **Idempotency Key (`x-idempotency-key`).** A unique ticket number generated by the checkout button. If network hiccups cause the customer's phone to retry the request 3 times, `order-svc` executes the checkout once, caches the result alongside a SHA-256 hash of the payload, and replays the receipt on retries. The hash lives on the order row too, so a retry that arrives after a crash (or after Redis lost the cache) still resolves to the same order; a *different* body under the same key is rejected with `409 IDEMPOTENCY_CONFLICT`.
+* **Pending-first payment saga.** The order is first written as a promise (`pending`, payment `pending`), then the money is captured, then the same order is confirmed. Each step owns one compensation: a declined capture closes the attempt and releases the hold, a failure after the capture refunds it through the provider before closing the attempt, and a provider timeout leaves the order `pending` so the customer's retry resumes it (same order id, provider idempotency key = order id) instead of creating a second order.
+* **Refunds ledger.** A refund is not a status flip: it is a row in `order.refunds` reserved *before* the provider is called and settled after, so the books can never claim a refund that did not happen. One refund per order (a unique `order_id` is the idempotency gate): replaying a settled refund returns the stored row without calling the provider, a failed one is retried in place with the amount it was reserved for, and only a successful provider answer moves the payment to `refunded`.
 * **Saga-lite Stock Compensation.** If the customer's credit card is declined or the database connection drops after stock has been locked in the warehouse, `order-svc` executes an automated compensation call to `catalog-svc` to return the reserved stock to the shelf.
 * **Immutable Item Snapshots.** In `order_items`, the shop writes down the exact product name, SKU, and unit price paid at the moment of checkout. If the merchant alters the product price or deletes the product from the catalog next month, past receipts and tax invoices remain legally pristine.
 * **Finite State Machine (FSM).** Orders must advance through defined directional steps:
   `pending` &rarr; `confirmed` &rarr; `processing` &rarr; `shipped` &rarr; `delivered` &rarr; `refunded`.
-  An admin cannot roll back a `delivered` parcel back to `pending`, and cancelled orders cannot be revived.
+  An admin cannot roll back a `delivered` parcel back to `pending`, and cancelled orders cannot be revived. `pending` is a real state now (not just a default): it means "stock held, money not captured yet".
 
 ---
 
@@ -89,7 +90,7 @@ Global API prefix: `/api/v1`
 | `GET` | `/api/v1/orders` | `JwtAuthGuard`, `RolesGuard('admin')` | Admin order management with status, date, and order number filters. |
 | `GET` | `/api/v1/orders/:id/status-history` | `JwtAuthGuard`, `RolesGuard('admin')` | Chronological audit timeline of order status transitions. |
 | `PATCH` | `/api/v1/orders/:id/status` | `JwtAuthGuard`, `RolesGuard('admin')` | Advances order status according to the Finite State Machine; appends to history and writes outbox event. |
-| `POST` | `/api/v1/orders/:id/refund` | `JwtAuthGuard`, `RolesGuard('admin')` | Refunds delivered order (full or partial up to `grand_total`); sets order & payment to `refunded`, appends history, writes outbox event. |
+| `POST` | `/api/v1/orders/:id/refund` | `JwtAuthGuard`, `RolesGuard('admin')` | Refunds a delivered order (full or partial up to `grand_total`) through the payment provider: reserves a `refunds` row, calls `processRefund` with the stored `transaction_id`, settles the ledger + payment + order + `order.status.updated` in one transaction, and returns `{order, refund}`. |
 
 ### 3.4 Internal Service-to-Service Gateway
 | Method | Path | Auth / Guards | Description |
@@ -127,11 +128,14 @@ Global API prefix: `/api/v1`
 
 ## 5. Database Schema & Tables
 
-PostgreSQL schema `"order"` contains 7 dedicated tables:
-* `orders`: core order entity with currency, totals (subtotal, shipping, tax, discount, grand total), JSONB address snapshots, and statuses.
+PostgreSQL schema `"order"` contains 8 dedicated tables:
+* `orders`: core order entity with currency, totals (subtotal, shipping, tax, discount, grand total), JSONB address snapshots, statuses, the stock reservation id, and the idempotency key + payload hash.
+  * Partial unique index: `idx_orders_idem` on `(user_id, idempotency_key) WHERE idempotency_key IS NOT NULL` — one key per user, and the loser of a race gets `23505` instead of a second order.
 * `order_items`: line item snapshot records with product ID, variant ID, product name, SKU, unit price, quantity, and line total.
 * `order_status_history`: immutable chronological log of state changes (`from_status`, `to_status`, `note`, `actor`, `created_at`).
-* `payments`: lifecycle payment records (`provider`, `amount`, `status`, `transaction_id`, `paid_at`).
+* `payments`: lifecycle payment records (`provider`, `amount`, `status`, `transaction_id`, `paid_at`), moving `pending` &rarr; `captured` &rarr; `refunded` (or `failed`).
+* `refunds`: the refund ledger — one row per order (`UNIQUE (order_id)`), carrying `amount`, `status` (`pending`/`succeeded`/`failed`), `provider_reference`, `failure_reason`, `reason`, and `requested_by`.
+  * Index: `idx_refunds_order` on `(order_id)`.
 * `outbox`: transactional event queue (`event_id`, `aggregate_type`, `aggregate_id`, `event_type`, `payload`, `status`, `attempts`, `published_at`).
   * Partial index: `idx_outbox_pending` on `(created_at) WHERE status = 'pending'`.
 * `discount_codes`: coupons with percent/fixed values, date windows (`starts_at`, `ends_at`), max uses, and atomic `uses_count`.
@@ -142,19 +146,20 @@ PostgreSQL schema `"order"` contains 7 dedicated tables:
 
 ## 6. Verification & Automated Test Inventory
 
-* **Unit Tests (45 tests across 5 test suites)**:
-  * `orders.service.spec.ts` (14 tests): FSM transition rules, cancellation paths, terminal state immutability, customer ownership RBAC, and refund calculations.
+* **Unit Tests (77 tests across 6 test suites)**:
+  * `orders.service.spec.ts` (24 tests): FSM transition rules, terminal state immutability, customer ownership RBAC, stock-hold release on cancellation, and the refund ledger (provider call, replay, in-flight guard, no-captured-payment, provider failure, retry amount).
   * `outbox.service.spec.ts` (3 tests): event polling, concurrency guard, and retry increments.
-  * `checkout.service.spec.ts` (7 tests): idempotency replay, payload hash conflict detection, saga stock compensation, and atomic outbox transaction.
+  * `checkout.service.spec.ts` (25 tests): user-scoped idempotency replay, body-hash conflicts, corrupt cache, Redis fail-closed 503, pending-first saga, capture decline, TX2 failure compensation, resume, and hold release exactly once.
   * `discounts.service.spec.ts` (17 tests): percent/fixed calculations, cart clamping, date windows, and usage thresholds.
   * `health.service.spec.ts` (4 tests): PostgreSQL and Redis ping health checks.
-* **E2E Integration Tests (60 tests across 6 test suites)**:
+  * `canonical-json.spec.ts` (4 tests): stable key ordering and hashing of equivalent payloads.
+* **E2E Integration Tests (77 tests across 6 test suites — 76 pass, 1 skipped)**:
   * `security.e2e-spec.ts` (12 tests): structured error envelope, `x-request-id` tracing, `Cache-Control: no-store`, `ServiceKeyGuard` enforcement, RBAC isolation, prototype pollution rejection, and SQL injection safety.
-  * `orders.e2e-spec.ts` (18 tests): customer history lookup, cross-customer forbidden isolation, admin status progression (`confirmed` &rarr; `processing` &rarr; `shipped` &rarr; `delivered`), rollback rejection, status history timeline, and refund flow.
-  * `checkout.e2e-spec.ts` (6 tests): checkout flow against live PostgreSQL, idempotency key replay, stock compensation rollback.
+  * `orders.e2e-spec.ts` (22 tests): customer history lookup, cross-customer forbidden isolation, admin status progression (`confirmed` &rarr; `processing` &rarr; `shipped` &rarr; `delivered`), rollback rejection, status history timeline, and refunds against a ledger (provider called once with the stored transaction, replay, provider failure leaving order and payment untouched, retry on the same row, `409 NO_CAPTURED_PAYMENT`, no `order.refunded` event).
+  * `checkout.e2e-spec.ts` (18 tests, 1 skipped): checkout against live PostgreSQL + Redis, cross-user key isolation, DB-authoritative replay after a cache flush, concurrent duplicates, Redis-outage drill, the payment saga (capture after the pending row, decline, TX2 failure refund, resume), and the stock/coupon failure matrix.
   * `discounts.e2e-spec.ts` (14 tests): public coupon validation, admin coupon CRUD, and usage increment verification.
   * `health.e2e-spec.ts` (2 tests): `/health` liveness and `/health/ready` readiness against live DB and Redis.
-  * `schema.e2e-spec.ts` (8 tests): 7 PostgreSQL tables, foreign key cascades, `set_updated_at()` trigger, check constraints.
+  * `schema.e2e-spec.ts` (9 tests): 8 PostgreSQL tables, the refund unique constraint, foreign key cascades, `set_updated_at()` triggers, check constraints.
 * **Code Quality & Linter**:
-  * `oxlint --type-aware src/ test/`: **0 warnings / 0 errors** on 65 files with 111 rules.
+  * `oxlint --type-aware src/ test/`: **0 warnings / 0 errors** on 70 files with 111 rules.
   * `nest build`: Clean TypeScript build exiting code `0`.
