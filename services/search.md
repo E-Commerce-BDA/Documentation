@@ -117,7 +117,7 @@ INSERT INTO search.search_documents (
   id, document_type, title, slug, content, image_url,
   price, effective_price, category_id, popularity, status,
   source_updated_at, synced_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, 0), $11, $12, now())
 ON CONFLICT (document_type, id) DO UPDATE SET
   title = EXCLUDED.title,
   slug = EXCLUDED.slug,
@@ -126,13 +126,46 @@ ON CONFLICT (document_type, id) DO UPDATE SET
   price = EXCLUDED.price,
   effective_price = EXCLUDED.effective_price,
   category_id = EXCLUDED.category_id,
-  popularity = EXCLUDED.popularity,
+  popularity = COALESCE($10, search.search_documents.popularity),
   status = EXCLUDED.status,
   source_updated_at = EXCLUDED.source_updated_at,
   synced_at = now()
-WHERE EXCLUDED.source_updated_at >= search.search_documents.source_updated_at
+WHERE EXCLUDED.source_updated_at > search.search_documents.source_updated_at
 RETURNING id;
 ```
+
+`popularity` is a read-model-owned counter: a payload without one keeps the
+stored value instead of resetting it to zero.
+
+### 3.3 Dedupe (`db/003-processed-events.sql`)
+
+```sql
+CREATE TABLE IF NOT EXISTS search.processed_events (
+  event_id varchar(64) NOT NULL PRIMARY KEY,
+  topic varchar(64) NOT NULL,
+  processed_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_processed_events_processed_at
+  ON search.processed_events (processed_at);
+```
+
+- **Why a table and not the document row.** The upsert is a *last-writer* rule
+  (`source_updated_at`), so a replay looks exactly like a stale update and used
+  to be reported as `skipped`. `processed_events` answers the different
+  question: "have I already applied this event id?"
+- **One transaction.** `IndexerRepository.withTransaction` opens
+  `BEGIN`, inserts the id (`ON CONFLICT DO NOTHING RETURNING event_id`) and only
+  then upserts. A crash between the two leaves no id claimed. A failed upsert
+  (deadlock, constraint) rolls the id back too, so the consumer's retry ladder
+  can succeed.
+- **`rowCount > 0` is the whole contract.** No row means another delivery won
+  the race; the outcome is `duplicate` and the document is not touched.
+- **Growth.** `processed_at` is indexed for the retention sweep
+  (`DELETE ... WHERE processed_at < now() - interval '30 days'`), which is a
+  follow-up, not part of `srch-001`.
+- **HTTP ingest does not claim ids.** `POST /search/internal/documents` has no
+  envelope, so `ingestMany` still writes straight through and reports
+  `accepted`/`skipped`/`rejected`.
 
 ---
 
@@ -288,6 +321,39 @@ Returns summary statistics for the search index. Requires header `x-service-key`
 
 ---
 
+### 4.5 `GET /api/v1/search/internal/consumer-stats` (Internal)
+
+Per-outcome counters for the event consumer (`srch-001`). Requires header
+`x-service-key`; `Cache-Control: no-store`. Process-local and reset on boot —
+it answers "what happened since the last deploy", not "what happened ever".
+
+**Response `200 OK`:**
+```json
+{
+  "accepted": 1024,
+  "skipped": 12,
+  "duplicate": 3,
+  "ignored": 40,
+  "invalid": 0,
+  "dlq": 0
+}
+```
+
+| Counter | Meaning |
+|---|---|
+| `accepted` | Envelope claimed and `search_documents` written |
+| `skipped` | Claimed, but the stale guard (`source_updated_at`) rejected the write |
+| `duplicate` | `processed_events` already held this event id; nothing written |
+| `ignored` | Committed without work: unknown type, not a subscribed topic, or unmappable |
+| `invalid` | Failed envelope/payload validation and was dead-lettered |
+| `dlq` | DLQ writes that actually succeeded (any reason) |
+
+`invalid` and `dlq` are counted separately on purpose: `invalid` is the verdict,
+`dlq` is the delivery. A DLQ publish that fails leaves both at zero and the
+retry ladder takes over.
+
+---
+
 ## 5. Event Ingestion Pipeline (Kafka)
 
 `search-svc` acts as a consumer for four domain events over Kafka:
@@ -304,6 +370,44 @@ Returns summary statistics for the search index. Requires header `x-service-key`
 - **Consumer Group:** `search-svc`
 - **Offset management:** Manual commit (`autoCommit: false`). Offset committed only after PostgreSQL upsert transaction succeeds.
 - **Retry & DLQ:** 5 attempts with exponential backoff (1s, 2s, 4s, 8s, 16s). If still failing, message is written to `<topic>.dlq` and consumer offset is committed.
+
+### Classification and DLQ policy (`srch-001`)
+
+Every record is classified **before** any database work, by
+`src/events/event-interpreter.ts` (pure: no Kafka, no Postgres):
+
+1. `readEventEnvelope` — normalizes the legacy `topic`/`eventType` dual-write and
+   validates the envelope (`id`, `producer`, `timestamp`, `payload`).
+2. `isEventTopic` — is this type in `EVENT_TOPICS` at all?
+3. `isSearchTopic` — is it one of the four we consume?
+4. `parseEventPayload` — does the payload match that topic's schema?
+5. `EventMapper.mapToSearchDocument` — can it become a `SearchDocument`?
+
+| Outcome | Counter | Offset | DLQ |
+|---|---|---|---|
+| Body is not JSON | `invalid` + `dlq` | committed | `<topic>.dlq`, `reason: invalid-json`, `rawValue` |
+| Envelope fails validation | `invalid` + `dlq` | committed | `reason: invalid-envelope`, `originalPayload` |
+| Payload fails the topic schema | `invalid` + `dlq` | committed | `reason: invalid-payload`, `originalPayload` |
+| Unknown type, not subscribed, or unmappable | `ignored` | committed + `warn` | — |
+| Applied (fresh insert/update) | `accepted`/`skipped` | committed | — |
+| Already-applied event id | `duplicate` | committed | — |
+| Infrastructure error | — | committed **after** the DLQ write | `reason: transient-exhausted`, after the 5-attempt ladder |
+
+Two rules make this safe:
+
+- **No retries for a malformed record.** A payload that fails a strict schema
+  will fail it forever; retrying only blocks the partition behind it.
+- **The offset follows the DLQ write.** If `producer.send` throws, `commitOffsets`
+  is never reached, so the record is redelivered instead of lost. This is the
+  invariant the `kafka-event-consumer` unit tests pin.
+
+DLQ records carry `source: { topic, partition, offset }` so a replay can be
+scoped, plus `failedAt` and `error` (Zod issues, first three, clipped to 300
+characters).
+
+`ignored` is not an error: `cms.updated` is a registered topic produced on the
+`cms.events` transport topic, and search-svc has no use for it. Committing it
+with a warning keeps it out of the DLQ while still making the traffic visible.
 
 ---
 
