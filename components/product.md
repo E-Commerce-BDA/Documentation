@@ -1,7 +1,7 @@
 # ProductCard (+ Gallery / VariantSelector stubs) — commerce face
 
 > Scope: `frontend/storefront/components/commerce/ProductCard.tsx` + `.sf-productcard` (media, badge, info, hover actions, stock/wishlist states, ports, theme group sketch).
-> Status: Active | Version 1.1 | Date: 2026-10-27
+> Status: Active | Version 1.2 | Date: 2026-10-30
 > Parent: `components/README.md` (index + conventions)
 
 ---
