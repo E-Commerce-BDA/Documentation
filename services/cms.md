@@ -95,16 +95,20 @@ no-store`.
 
 ## 4. Local runtime and configuration
 
-MongoDB runs as `ecom-cms-mongo` on `127.0.0.1:27018` with the
-`ecom-cms-mongo-data` volume. Local Mongo has no authentication and is bound
-to loopback only. Atlas is reserved for the separate staging smoke
-environment in Phase 7 and is never used by automated tests.
+MongoDB runs as `ecom-mongo` on `127.0.0.1:27018` with the `e-commerce_mongo-data`
+volume, started by the single stack in `ecom-infra/docker-compose.yml`. It is a
+single-node replica set (`rs0`): `cms_outbox` needs transactions, and a standalone
+`mongod` cannot start a session. The member is advertised as `mongo:27017`, so a
+host-side client has to pass `?directConnection=true` or it resolves `mongo` and
+fails with `ENOTFOUND`. Local Mongo has no authentication and is bound to
+loopback only. Atlas is reserved for the separate staging smoke environment in
+Phase 7 and is never used by automated tests.
 
 | Variable | Purpose | Local default |
 |---|---|---|
 | `NODE_ENV` | `development`, `test`, or `production` | `development` |
 | `PORT` | HTTP port | `4050` |
-| `MONGODB_URI` | Mongo connection string including database name | `mongodb://127.0.0.1:27018/ecom_cms` |
+| `MONGODB_URI` | Mongo connection string including database name | `mongodb://127.0.0.1:27018/ecom_cms?directConnection=true` |
 | `JWT_SECRET` | Shared access-token secret, minimum 32 characters | local-only value in `.env` |
 | `REDIS_URL` | Redis connection string | `redis://localhost:6379` |
 
@@ -170,7 +174,7 @@ retrying for roughly 27 seconds.
 | 1 | `@ecom/contracts` | New `ecom-contracts` repo; package `@ecom/contracts@1.0.0`; exact pin; GitHub Release tarball on `v*` tag; ESM + `.d.ts`; Zod 4 peer. |
 | 2 | Sections/settings API | Sparse overrides only; storefront resolver remains the merge authority. Public reads return `{sections, version}`, `{theme, version}`, `{navbar, version}`, `{settings, version}`. `version` is the global CMS revision. Admin section reads use `/admin/sections`. Page-scoped auth settings use `/settings/page/:pageKey`. |
 | 3 | Nav/theme shape | Contracts own admin payload types based on the storefront `NavSettings` + `shared.megamenu`; theme is `tokens` (colors/radii/photo/typography) plus the existing storefront component groups. Storefront imports payload types; resolved types stay local. |
-| 4 | Media | One shared bucket per env (`ecom-media-{env}`); cms-svc owns the `media` collection and `media/` prefix. Backend multipart upload; PNG/JPEG/WebP/AVIF only; 10 MB; no SVG in v1. `media.resize-image` job writes width/format variants. Product images remain catalog-owned URLs. |
+| 4 | Media | One shared bucket per env (`ecom-media-{env}`); cms-svc owns the `media` collection and `media/` prefix. Backend multipart upload; PNG/JPEG/WebP/AVIF only; 10 MB; no SVG in v1. `media-resize-image` job writes width/format variants. Product images remain catalog-owned URLs. |
 | 5 | Atlas backup | Staging M0: nightly `mongodump` to S3, 7-day retention. Production M0: hourly dumps, 30-day retention, RPO ≤1h/RTO ≤30m. Upgrade to M10 + PITR at >350 MB (70% of M0) or when RPO <1h is required. |
 | 6 | Draft filtering | Save = publish for sections/settings/nav/theme and pages (`isActive` is the publish switch). Blogs keep `status: draft/published`. Public reads filter in Mongo; admin reads are separate and role-guarded. |
 
@@ -238,7 +242,7 @@ ordered references and media keys/URLs only.
 4. **2.3 Pages/blogs** — active/published filters, cursor pagination,
    `blog.updated`.
 5. **2.4 Media** — StoragePort interface + local disk adapter, upload/list/delete,
-   in-use guard, `media.resize-image` worker.
+   in-use guard, `media-resize-image` worker.
 6. **2.5 Storefront wiring** — contracts types, nav/theme fetch, auth settings
    endpoint, fallback-to-builtins.
 7. **2.6 Docs/tests** — API/schema docs, backup runbook, unit/e2e/smoke gates.
