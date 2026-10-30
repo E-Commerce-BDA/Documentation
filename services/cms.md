@@ -266,6 +266,45 @@ A blog post in `cms_blogs` renders an editorial article:
 - **Storage key format:** `media/{yyyy}/{mm}/{uuid}.{ext}`.
 - **Usage enum:** `section`, `blog`, `page`, `brand`, `category`, `other`. Product images stay catalog-owned.
 - **In-use guard:** `DELETE /admin/media/:id` queries `cms_sections`, `cms_pages`, and `cms_blogs`. If the image URL or key is referenced anywhere, deletion is rejected with `409 MEDIA_IN_USE`.
+- **Visibility:** `public` (default) or `private`. `private` assets are reachable only through the admin file route. A document written before `cms-003` has no field and is public.
+
+### 10.4 Media delivery and containment
+
+`cms-003` closed two defects: the file route built a path with
+`path.resolve(baseDir, key)` and served any key that existed on disk, and
+nothing distinguished an editorial asset from a public one.
+
+| Route | Auth | Serves | `Cache-Control` |
+|---|---|---|---|
+| `GET /cms/media/file/*` | none | `public` rows only | `public, max-age=60, must-revalidate` |
+| `GET /cms/admin/media/:id/file` | 👑 admin, Mongo `ObjectId` | any visibility | `private, no-store` |
+
+**Rules**
+
+- **One path builder.** The storage port exposes `resolvePath(key)`; the local
+  adapter validates every key in one private method before it touches the disk:
+  a null byte is rejected outright, the key is percent-decoded exactly once, the
+  `mediaKeySchema` regex decides the shape, and `path.relative(base, abs)` must
+  not escape. `save`, `delete`, `exists`, and `resolvePath` all go through it, so
+  there is no second way to reach a file.
+- **Symlinks.** `resolvePath` re-checks containment after `fs.realpath` on both
+  the storage root and the target, so a link planted inside `storage/` cannot
+  read outside it.
+- **A row is required.** The route resolves a `cms_media` document first, so an
+  orphan file on disk is `404` instead of being served.
+- **No existence oracle.** A private row and a missing row answer identically
+  (`404 MEDIA_NOT_FOUND`, `File not found`) and the body never carries a key, a
+  path, or a separator. The public route answers `404` by design; `401`/`403`
+  belong to the admin route.
+- **Why 60 seconds and not `immutable`.** Visibility is mutable: the same URL can
+  be privatised after it was public, so an `immutable` directive would keep the
+  bytes publicly cacheable long after the decision. `must-revalidate` plus a
+  short TTL bounds that window; a versioned URL (`?v=<updatedAt>`) is the way to
+  earn `immutable` later. The admin route is `private, no-store` because it may
+  return a private asset.
+- **Headers.** Both routes set `Content-Type` from the stored MIME type,
+  `X-Content-Type-Options: nosniff`, and `Content-Disposition: inline`. The file
+  is `stat`ed before the first header, so a miss stays a JSON error.
 
 ## 11. MongoDB Atlas backup & restore runbook
 
