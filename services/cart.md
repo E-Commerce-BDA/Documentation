@@ -288,6 +288,27 @@ It is not a cart and never emits `cart.updated`.
 
 ---
 
+### 4.9 Internal conversion (Phase-0 bridge)
+
+`POST /api/v1/cart/internal/carts/:userId/convert` — service-to-service only,
+guarded by `x-service-key` (`401 SERVICE_KEY_INVALID` otherwise).
+
+- One statement: `UPDATE cart.carts SET status='converted', last_activity_at=now()
+  WHERE user_id=$1 AND status='active' RETURNING …`. The partial unique index
+  `one_active_cart_per_user` guarantees at most one row, so no transaction and no
+  `FOR UPDATE`.
+- `200 {cartId, convertedAt}` when a cart was converted, `204` when the user has
+  no active cart — so a replay is a silent no-op — and `400 VALIDATION_FAILED`
+  for a non-uuid user id.
+- Items are **not** deleted: `converted` is history for analytics and support.
+- One `cart.updated` with `status: 'converted'` is published after the update
+  (no-op adapter until ca-008).
+- `INTERNAL_SERVICE_KEY` is mandatory when `NODE_ENV=production`; the app refuses
+  to boot without it, so the development fallback cannot reach a deployment.
+- Why it exists: checkout confirms the order before any `order.created` consumer
+  exists (ca-009). order-svc calls this route fire-and-forget; a failure costs an
+  abandoned-cart email, never the order. The route is removed in ca-009.
+
 ## 5. Settings subsystem
 
 ### 5.1 Why a registry, not a column per setting
@@ -534,6 +555,7 @@ a contract change, not a v1 addition.
 | `GET /wishlist` | verified JWT + `customer` | own wishlist only; no guest wishlist |
 | `POST /wishlist/items` | verified JWT + `customer` | own wishlist only; duplicate add returns the existing item |
 | `DELETE /wishlist/items/:id` | verified JWT + `customer` | own wishlist only; missing/foreign → 404 |
+| `POST /cart/internal/carts/:userId/convert` | `x-service-key` | service-to-service only; no JWT; 204 on replay; not exposed through Nginx |
 
 Wishlist is the first customer-role route to verify the JWT in cart-svc.
 Guests are prompted to sign in; the storefront carries the pending product
