@@ -36,7 +36,8 @@ Customer's Browser / BFF          Nginx API Gateway               order-svc (:40
                     │ 5. Capture payment (order exists now)              │
                     │ 6. TX2: payments→captured, orders→                 │
                     │    confirmed/paid, history, outbox row             │
-                    │ 7. Cache + unlock + best-effort cart clear         │
+                    │ 7. Cache + unlock + best-effort cart    │
+                    │    conversion (Phase-0 bridge)          │
                     ▼                                                    ▼
               PostgreSQL :5433                                      Redis :6379
           Schema "order" (8 tables)                         Replay cache & Locks
@@ -47,6 +48,7 @@ Customer's Browser / BFF          Nginx API Gateway               order-svc (:40
 * **Pre-transaction stock reservation**: `order-svc` reserves stock with `catalog-svc` *before* opening TX1, preventing external HTTP latency from holding open database connections. The hold must precede the order row, because the row is the first durable write and a pending order with no hold could be confirmed against stock that was never reserved. Any failure after the hold releases it with `POST /internal/stock/release { reservationId }`, and a terminal transition (`cancelled`, `failed`) releases it again from the order row — a retry can never inflate stock because no quantities are sent.
 * **Transactional outbox guarantee**: The order row and its `order.created` event row are written inside the *exact same* SQL transaction (TX2). The Dual-Write Problem is eliminated: an order cannot exist without its event, and an event cannot exist without its order.
 * **Asynchronous relay worker**: A background worker polls pending events from `order.outbox` using partial index `idx_outbox_pending`, publishes them, and marks them `published`.
+* **Cart conversion bridge (Phase-0)**: after the confirmation is cached, checkout calls `POST /api/v1/cart/internal/carts/:userId/convert` on cart-svc with `x-service-key` and a 2 s timeout, fire-and-forget. `200 {cartId, convertedAt}` means the active cart became `converted`; `204` means there was nothing to convert, which also makes a retry silent. Any failure is a `warn` in the log and never fails the order — the shopper keeps a `converted` cart or, worst case, an active cart that goes to the abandoned-cart flow. The bridge disappears when cart-svc consumes `order.created` (`ca-009`).
 
 ---
 
