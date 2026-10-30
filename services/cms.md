@@ -263,6 +263,22 @@ A blog post in `cms_blogs` renders an editorial article:
 ### 10.3 Media governance
 - **Allowed MIME types:** `image/png`, `image/jpeg`, `image/webp`, `image/avif`. SVG and executables are rejected.
 - **Max file size:** 10 MB.
+- **Size enforcement (`cms-004`).** `UploadSizeGuard` runs as a route guard, so it reads
+  `Content-Length` only and answers `413 MEDIA_TOO_LARGE` before multer touches the body.
+  The ceiling is 10 MB plus 16 KB of multipart overhead (boundaries, part headers, and
+  `usage`/`alt`/`visibility`). `FileInterceptor` keeps `fileSize: 10 MB` as the backstop for
+  a chunked request that sends no `Content-Length`, and `uploadMedia` re-checks
+  `buffer.length` — the client's `size` field is never trusted. Both paths answer the same
+  `413 MEDIA_TOO_LARGE`. When the rejection happens mid-upload the filter discards the
+  in-flight bytes (no buffering) so the client reads the 413 instead of a connection reset;
+  past 4× the ceiling the socket is closed instead.
+- **The bytes decide the type (`cms-004`).** `media-signature.ts` sniffs the magic bytes of
+  the buffer: PNG `89 50 4E 47 0D 0A 1A 0A`, JPEG `FF D8 FF`, WebP (`RIFF` at 0 and `WEBP`
+  at 8), AVIF (`ftyp` at 4 with brand `avif`/`avis`; `heic`/`mif1` are rejected). The
+  declared multipart type must be one of the four allowed types (`400
+  MEDIA_TYPE_UNSUPPORTED`) **and** agree with the sniff (`400 MEDIA_TYPE_MISMATCH`). The
+  stored `mimeType`, the extension, and `sizeBytes` come from the buffer, so a text file
+  renamed `.png` cannot become a public `image/png`.
 - **Storage key format:** `media/{yyyy}/{mm}/{uuid}.{ext}`.
 - **Usage enum:** `section`, `blog`, `page`, `brand`, `category`, `other`. Product images stay catalog-owned.
 - **In-use guard:** `DELETE /admin/media/:id` queries `cms_sections`, `cms_pages`, and `cms_blogs`. If the image URL or key is referenced anywhere, deletion is rejected with `409 MEDIA_IN_USE`.
@@ -305,6 +321,12 @@ nothing distinguished an editorial asset from a public one.
 - **Headers.** Both routes set `Content-Type` from the stored MIME type,
   `X-Content-Type-Options: nosniff`, and `Content-Disposition: inline`. The file
   is `stat`ed before the first header, so a miss stays a JSON error.
+- **Storage root at boot (`cms-004`).** `STORAGE_LOCAL_DIR` is optional in
+  development (falling back to `<cwd>/storage`) and required in production
+  (`env.validation.ts`). `LocalDiskStorageAdapter.onModuleInit` refuses a relative
+  path, `mkdir -p`s the root, and requires `W_OK`; a failure aborts boot, so an
+  unwritable or CWD-dependent root can never reach an upload. `storage*/` is
+  gitignored and the e2e suites each point the variable at their own directory.
 
 ## 11. MongoDB Atlas backup & restore runbook
 
