@@ -32,9 +32,9 @@ Nginx gateway  ── strips forged x-user-id / x-roles / service keys
 cart-svc :4030  ── owns cart + wishlist + cart.settings
         │         re-verifies JWT + role for wishlist/admin routes
         │
-        ├── Postgres `cart` schema   (carts, cart_items, wishlists, settings, audit)
+        ├── Postgres `cart` schema   (carts, cart_items, wishlists, settings, audit, outbox)
         ├── Redis                    (idempotency keys, 24h TTL)
-        └── Kafka                    (`cart.updated`, fire-and-forget adapter)
+        └── Kafka                    (`cart.updated`, published by the outbox relay)
 ```
 
 - The storefront owns the guest cookie (`x-session-id`) and calls cart-svc
@@ -44,8 +44,9 @@ cart-svc :4030  ── owns cart + wishlist + cart.settings
   use the gateway's trusted `x-user-id` on the private path.
 - cart-svc never reads `catalog` tables. Product name, slug, image, variant
   label, and unit price are **snapshots** taken when the line is added.
-- `cart.updated` is published **after commit** and never awaited in the
-  response path.
+- `cart.updated` is queued in `cart.outbox` **in the same transaction** as the
+  mutation and published by `@ecom/messaging`'s relay at-least-once, keyed by
+  `cartId`. The response path never waits for the broker.
 - Cart behavior settings are **runtime data**. Saving them is a database
   write, not a build or redeploy.
 
@@ -195,8 +196,8 @@ All endpoints are under `/api/v1/cart`. Cart mutations require
    - existing line: `qty = qty + requested`;
    - new line: copy name/slug/image/variant label/unit price from the
      catalog snapshot.
-6. Commit, recompute totals, return `201 {item, cartTotals}`.
-7. Publish one `cart.updated` after commit.
+6. Write the `cart.updated` envelope into `cart.outbox` inside the same
+   transaction, then commit and return `201 {item, cartTotals}`.
 
 Stock caps are a catalog responsibility; cart-svc stores the requested
 quantity and lets checkout revalidate. If a future catalog stock field is
@@ -240,11 +241,15 @@ when Redis is down — a double-add is worse than a short 503.
 
 ### 4.6 Events
 
-- Exactly one `cart.updated` per successful mutation, after commit.
+- Exactly one `cart.updated` row per committed mutation, written to
+  `cart.outbox` inside the mutation's transaction. A rejected or no-op
+  mutation writes none.
 - Payload: cart id, user id or session id, status, items, totals, updated
-  timestamp.
-- Publish is fire-and-forget; a broker failure is logged, never returned to
-  the shopper.
+  timestamp — validated against the contract before the insert, so a drifted
+  payload aborts the business write instead of queuing an unpublishable row.
+- The `@ecom/messaging` relay publishes in `created_at` order, keyed by
+  `cartId`, at-least-once (lease + `FOR UPDATE SKIP LOCKED`), gives up at five
+  attempts (`status='failed'`) and never blocks the response.
 - Merge emits one event for the resulting cart; the converted guest cart is
   visible in the database/audit trail, not as a second event.
 
@@ -293,16 +298,18 @@ It is not a cart and never emits `cart.updated`.
 `POST /api/v1/cart/internal/carts/:userId/convert` — service-to-service only,
 guarded by `x-service-key` (`401 SERVICE_KEY_INVALID` otherwise).
 
-- One statement: `UPDATE cart.carts SET status='converted', last_activity_at=now()
-  WHERE user_id=$1 AND status='active' RETURNING …`. The partial unique index
-  `one_active_cart_per_user` guarantees at most one row, so no transaction and no
+- In one transaction: `UPDATE cart.carts SET status='converted',
+  last_activity_at=now() WHERE user_id=$1 AND status='active' RETURNING …`, then
+  read the items and write the `cart.updated` row. The partial unique index
+  `one_active_cart_per_user` guarantees at most one row, so there is no
   `FOR UPDATE`.
 - `200 {cartId, convertedAt}` when a cart was converted, `204` when the user has
   no active cart — so a replay is a silent no-op — and `400 VALIDATION_FAILED`
   for a non-uuid user id.
 - Items are **not** deleted: `converted` is history for analytics and support.
-- One `cart.updated` with `status: 'converted'` is published after the update
-  (no-op adapter until ca-008).
+- One `cart.updated` with `status: 'converted'` (and the cart's items) is queued
+  in `cart.outbox` in that transaction, so the event carries the same snapshot
+  the response reports.
 - `INTERNAL_SERVICE_KEY` is mandatory when `NODE_ENV=production`; the app refuses
   to boot without it, so the development fallback cannot reach a deployment.
 - Why it exists: checkout confirms the order before any `order.created` consumer
@@ -512,8 +519,10 @@ the user JWT, the guest `x-session-id`, and `x-idempotency-key`.
 4. Apply the selected policy.
 5. Ensure the resulting cart is the single active cart for the user; mark
    the losing cart `converted`.
-6. Update `last_activity_at`; commit.
-7. Publish one `cart.updated` after commit.
+6. Update `last_activity_at`.
+7. Write the `cart.updated` row for the resulting cart inside the same
+   transaction, then commit. The losing cart is converted with a plain status
+   update and gets no event of its own.
 
 ### 6.3 Edge rules
 
@@ -534,9 +543,10 @@ the user JWT, the guest `x-session-id`, and `x-idempotency-key`.
 
 ### 6.4 Event
 
-One `cart.updated` for the resulting cart, after commit. A broker outage is
-logged; the merge remains successful. A future `cart.merged` event would be
-a contract change, not a v1 addition.
+One `cart.updated` row for the resulting cart, queued in `cart.outbox` in the
+merge transaction. A broker outage delays publication; the merge and the
+response are unaffected, and the relay retries. A future `cart.merged` event
+would be a contract change, not a v1 addition.
 
 ---
 
@@ -716,10 +726,11 @@ codes:
 - Guest cart persists across requests via `x-session-id`; one active cart
   per session under concurrent create.
 - Add/update/remove/clear; ownership returns 404; totals match rows.
-- Every mutation emits exactly one `cart.updated` after commit.
+- Every committed mutation writes exactly one `cart.outbox` row; a rejected or
+  no-op mutation writes none. A replayed mutation adds none.
 - Merge: all three policies, never-lose-only-cart, no duplicate lines,
-  guest cart `converted`, old user cart `converted` on guest-wins, one event,
-  retry is a no-op.
+  guest cart `converted`, old user cart `converted` on guest-wins, one outbox
+  row for the resulting cart, retry is a no-op.
 - Settings: admin GET/PATCH, 401/403, unknown key, invalid value, reset,
   stale version 409, audit row, `no-store`, no public route.
 - Wishlist: customer 200; admin-only/no-role 403; guest 401; empty list;
@@ -730,8 +741,15 @@ codes:
   role-sensitive routes re-verify the JWT.
 - Idempotency: same key returns the stored response; different body → 409;
   Redis down → 503 for mutations.
-- Schema: six tables, indexes, triggers, seed idempotency; re-running
-  `002` preserves an existing settings document.
+- Schema: seven tables (`outbox` included), indexes, triggers, seed
+  idempotency; re-running `002` preserves an existing settings document.
+- Outbox: one row per committed mutation, envelope agrees with its columns,
+  relay publishes keyed by `cartId` in `created_at` order, retry leaves the row
+  `pending` with `attempts`/`last_error`, five failures park it `failed` and it
+  is never retried, a held advisory lock makes the cycle `skipped`.
+- `RUN_KAFKA_E2E=1 pnpm test:e2e -- live-kafka` publishes to the real
+  `ecom-kafka` and reads the record back with `readEventEnvelope` +
+  `parseEventEnvelope`; skipped by default.
 
 ### Style/quality gates
 
@@ -747,8 +765,8 @@ codes:
 |---|---|---|
 | `catalog-svc` HTTP adapter | repo absent | fixture adapter now; swap wiring later |
 | Redis idempotency | container stopped/commented | start `ecom-redis`; readiness includes Redis |
-| Kafka publisher | broker absent | no-op `IEventBus` adapter; log event; swap later |
-| `@ecom/contracts` DTOs/events | package absent | local DTOs; move when package lands |
+| Kafka publisher | broker absent in dev | `@ecom/messaging` relay; `DISABLE_OUTBOX_RELAY=true` keeps e2e broker-free, rows stay `pending` until a relay runs |
+| `@ecom/contracts` DTOs/events | package present (1.8.0) | `cart.updated` payload is typed and validated against `cartUpdatedPayloadSchema` |
 | Admin settings screen | `frontend/admin` empty | admin-app phase (not a cart-svc task); API works with a test admin JWT |
 | `ask_customer` policy | needs preview + choice UI | later phase; not in the v1 enum |
 | Audit read endpoint | write audit now; read later | hardening phase |

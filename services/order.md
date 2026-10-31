@@ -138,8 +138,9 @@ PostgreSQL schema `"order"` contains 8 dedicated tables:
 * `payments`: lifecycle payment records (`provider`, `amount`, `status`, `transaction_id`, `paid_at`), moving `pending` &rarr; `captured` &rarr; `refunded` (or `failed`).
 * `refunds`: the refund ledger — one row per order (`UNIQUE (order_id)`), carrying `amount`, `status` (`pending`/`succeeded`/`failed`), `provider_reference`, `failure_reason`, `reason`, and `requested_by`.
   * Index: `idx_refunds_order` on `(order_id)`.
-* `outbox`: transactional event queue (`event_id`, `aggregate_type`, `aggregate_id`, `event_type`, `payload`, `status`, `attempts`, `published_at`).
-  * Partial index: `idx_outbox_pending` on `(created_at) WHERE status = 'pending'`.
+* `outbox`: transactional event queue (`event_id`, `aggregate_type`, `aggregate_id`, `event_type`, `envelope`, `status`, `attempts`, `last_error`, `locked_until`, `created_at`, `published_at`). Migration `006` added `envelope` / `locked_until` / `last_error`, made the legacy `payload` nullable (already-published rows keep their original bytes), and parked pre-envelope pending rows at `failed`.
+  * Partial index: `idx_outbox_pending` on `(created_at) WHERE status = 'pending'`; unique `event_id`; `CHECK (status <> 'pending' OR envelope IS NOT NULL)` plus the envelope-vs-row consistency checks.
+  * The table is addressed as `"order"."outbox"` — `order` is reserved, so the store quotes its identifiers.
 * `discount_codes`: coupons with percent/fixed values, date windows (`starts_at`, `ends_at`), max uses, and atomic `uses_count`.
   * Partial index: `idx_discount_codes_valid` on `(ends_at) WHERE is_active = true`.
 * `shipments`: fulfillment records with carrier, tracking numbers, and shipment statuses.
@@ -148,20 +149,22 @@ PostgreSQL schema `"order"` contains 8 dedicated tables:
 
 ## 6. Verification & Automated Test Inventory
 
-* **Unit Tests (77 tests across 6 test suites)**:
+* **Unit Tests (78 tests across 6 test suites)**:
   * `orders.service.spec.ts` (24 tests): FSM transition rules, terminal state immutability, customer ownership RBAC, stock-hold release on cancellation, and the refund ledger (provider call, replay, in-flight guard, no-captured-payment, provider failure, retry amount).
-  * `outbox.service.spec.ts` (3 tests): event polling, concurrency guard, and retry increments.
-  * `checkout.service.spec.ts` (25 tests): user-scoped idempotency replay, body-hash conflicts, corrupt cache, Redis fail-closed 503, pending-first saga, capture decline, TX2 failure compensation, resume, and hold release exactly once.
+  * `checkout.service.spec.ts` (25 tests): user-scoped idempotency replay, body-hash conflicts, corrupt cache, Redis fail-closed 503, pending-first saga, capture decline, TX2 failure compensation, resume, hold release exactly once, and the `OutboxWrite` shape the outbox path expects (`ord-011`).
   * `discounts.service.spec.ts` (17 tests): percent/fixed calculations, cart clamping, date windows, and usage thresholds.
   * `health.service.spec.ts` (4 tests): PostgreSQL and Redis ping health checks.
   * `canonical-json.spec.ts` (4 tests): stable key ordering and hashing of equivalent payloads.
-* **E2E Integration Tests (77 tests across 6 test suites — 76 pass, 1 skipped)**:
+  * `cart.client.spec.ts` (4 tests): the conversion call sends `x-service-key`, a `204` is silent and a `404` warns without failing the confirmation.
+* **E2E Integration Tests (82 tests across 8 test suites — 79 pass, 3 skipped)**:
   * `security.e2e-spec.ts` (12 tests): structured error envelope, `x-request-id` tracing, `Cache-Control: no-store`, `ServiceKeyGuard` enforcement, RBAC isolation, prototype pollution rejection, and SQL injection safety.
   * `orders.e2e-spec.ts` (22 tests): customer history lookup, cross-customer forbidden isolation, admin status progression (`confirmed` &rarr; `processing` &rarr; `shipped` &rarr; `delivered`), rollback rejection, status history timeline, and refunds against a ledger (provider called once with the stored transaction, replay, provider failure leaving order and payment untouched, retry on the same row, `409 NO_CAPTURED_PAYMENT`, no `order.refunded` event).
   * `checkout.e2e-spec.ts` (18 tests, 1 skipped): checkout against live PostgreSQL + Redis, cross-user key isolation, DB-authoritative replay after a cache flush, concurrent duplicates, Redis-outage drill, the payment saga (capture after the pending row, decline, TX2 failure refund, resume), and the stock/coupon failure matrix.
   * `discounts.e2e-spec.ts` (14 tests): public coupon validation, admin coupon CRUD, and usage increment verification.
   * `health.e2e-spec.ts` (2 tests): `/health` liveness and `/health/ready` readiness against live DB and Redis.
   * `schema.e2e-spec.ts` (9 tests): 8 PostgreSQL tables, the refund unique constraint, foreign key cascades, `set_updated_at()` triggers, check constraints.
+  * `outbox.e2e-spec.ts` (6 tests, `ord-011`): checkout confirmation writes exactly one valid `order.created` row with the `orderId` payload matching the row key, an admin transition writes `order.status.updated`, a drain publishes in key order and marks the rows `published`, a rejected transition writes nothing, and a forced failure rolls the event back with the order.
+  * `live-kafka.e2e-spec.ts` (2 tests, gated by `RUN_KAFKA_E2E=1`): the real relay publishes `order.created` and `order.status.updated` to the broker, with the publisher overridden at the module boundary (env flips are too late, §`9.Testing.md`).
 * **Code Quality & Linter**:
   * `oxlint --type-aware src/ test/`: **0 warnings / 0 errors** on 70 files with 111 rules.
   * `nest build`: Clean TypeScript build exiting code `0`.

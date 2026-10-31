@@ -101,7 +101,7 @@ rarely (so it can afford a cabinet lookup and can be cancelled on demand).
 
 | Counter | Speed limit | Happy path | When it says no |
 |---|---|---|---|
-| Sign up | 10/s | `201` + account created + signed in + `user.registered` announced | `409` email taken (plain words) · `400` weak password (with guidance) |
+| Sign up | 10/s | `201` + account created + signed in + `user.registered` queued in `auth.outbox` in the same transaction | `409` email taken (plain words) · `400` weak password (with guidance) |
 | Sign in | 10/s | `200` + token pair in the body (the BFF sets HttpOnly cookies) | `401` "invalid email or password" — identical whether the email or the password was wrong, so strangers can't probe which accounts exist |
 | Refresh (fresh slip please) | 10/s | `200` + fresh access token + rotated refresh token; old ticket cancelled | `401` ticket expired → sign in again · `401` ticket already used → whole family cancelled + "signed out for safety" notice |
 | Sign out | — | `204`, always, even if already signed out (safe to retry) | never errors |
@@ -110,6 +110,14 @@ rarely (so it can afford a cabinet lookup and can be cancelled on demand).
 | Forgot / reset | 5/s | `202` accepted — same reply whether the email exists or not | single-use expiring reset link by mail |
 
 **Password rule (sign up, change password, reset):** 8–128 characters, at least one letter and one digit. The `400` message states the rule in plain words ("with guidance" above) — never the hash, the policy internals, or a stack trace. Longer passwords are allowed; only the listed minimums are enforced.
+
+**What `user.registered` carries (PII rule):** the user **id**, a display name
+(first + last, truncated to the contract's 120 characters) and the
+registration timestamp. Never the email address — consumers that need it ask
+auth-svc. The row lives in `auth.outbox` and is published by the
+`@ecom/messaging` relay, keyed by `userId`, at-least-once. A failed
+registration (e.g. `409` email taken) rolls the outbox row back with the user
+row, so nothing is announced about an account that does not exist.
 
 ### 4.1 Health probes
 
