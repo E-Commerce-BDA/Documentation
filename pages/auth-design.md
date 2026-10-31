@@ -98,6 +98,41 @@ After login it calls `POST /wishlist/items`; the unique
 `(wishlist_id, product_id)` constraint makes a duplicate a no-op. Guests are
 prompted to sign in; there is no server-side guest wishlist.
 
+### 5.1 Thin client — where the tokens actually live (`sf-049`)
+
+The storefront is a client of auth-svc, and the browser is never a client of anything. Four route
+handlers carry the traffic — `POST /api/auth/login`, `/register`, `/refresh`, `/logout` — each of
+them: validate → forward to auth-svc over HTTP → set cookies → answer with `{user}` or `{ok:true}`.
+No handler returns a token, and each is asserted to answer exactly that key set, so a token
+reaching JS fails a test rather than a review (`4.API-Design.md §3.10`).
+
+- **Storage.** `sf_at` (`HttpOnly`, `SameSite=Lax`, `Path=/`, `Max-Age=900`) and `sf_rt`
+  (`HttpOnly`, `SameSite=Lax`, `Path=/api/auth`, `Max-Age=2592000`), `Secure` in production. The
+  refresh cookie is scoped to `/api/auth` so an ordinary page request never carries it. Values
+  live in `lib/auth/session.ts` and nowhere else.
+- **One path gets a Bearer.** `proxy.ts` rewrites `GET /api/auth/session` to
+  `${AUTH_SVC_URL}/api/v1/auth/me` with `Authorization: Bearer <sf_at>` added server-side and the
+  inbound `cookie` header deleted. auth-svc never receives a cookie it did not ask for, and the
+  browser never sees the header.
+- **Guards.** `/account/*` and `/checkout/*` with no cookies → `/signin?next=<path>`; with only
+  `sf_rt` → `/api/auth/refresh?next=<path>`, which rotates the pair and `303`s back. `?next=` is
+  passed through `safeNextPath` at all three call sites, so `//evil.com` and absolute URLs are
+  refused rather than followed.
+- **Refresh is a route, not a rewrite.** It must *write* two cookies with the storefront's own
+  attributes; a pass-through would return auth-svc's `Set-Cookie` with a scope auth-svc never
+  intended for a third party.
+- **Sign-out is a `POST`.** `SameSite=Lax` still sends cookies on a top-level cross-site `GET`, so
+  a `GET /api/auth/logout` link would let any page sign a shopper out.
+- **Errors are mapped, never forwarded.** auth-svc emits no domain error codes yet, so
+  `INVALID_CREDENTIALS`, `TOKEN_REUSED`, `ACCOUNT_DISABLED` and `SERVICE_UNAVAILABLE` are derived
+  from status *and* message. Rendering auth-svc's `message` would leak internal phrasing and, for
+  the disabled-account case, an enumeration oracle. Domain codes in the auth-svc error envelope
+  are the fix, and they belong to auth-svc.
+- **Not built.** There is no sign-out affordance in the shell yet (`signout` exists in the nav
+  vocabulary but renders no link — the menu must post a form), and no forgot-password flow exists
+  on either side, because auth-svc exposes no reset endpoint. `ForgotForm` keeps a
+  `TODO(auth-client)` naming that reason.
+
 ## 6. Storefront demo (`E:\E-Commerce\index.html` `#/auth` + knobs drawer)
 
 Status: **implemented** (demo-grade: resets on reload; persistence with

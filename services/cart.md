@@ -187,9 +187,11 @@ All endpoints are under `/api/v1/cart`. Cart mutations require
 `POST /cart/items` body `{productId, variantId?, qty}`:
 
 1. Validate `qty > 0` (integer).
-2. Ask the `CatalogClient` adapter for the product/variant snapshot. In v1
-   the adapter is a local fixture because `catalog-svc` is absent; production
-   swaps in the HTTP client.
+2. Ask `HttpCatalogClient` for the product/variant snapshot
+   (`GET {CATALOG_SVC_URL}/api/v1/catalog/internal/products?ids=<variantId|productId>`
+   with `x-service-key`, 1.5 s abort). Catalog unreachable, non-2xx, non-JSON
+   or a row that fails the shape check → `503 CATALOG_UNAVAILABLE` and nothing
+   is written.
 3. Product missing/inactive → `422 CART_PRODUCT_UNAVAILABLE`.
 4. Ensure the active cart.
 5. Insert or update the matching line:
@@ -255,14 +257,31 @@ when Redis is down — a double-add is worse than a short 503.
 
 ### 4.7 Catalog adapter
 
-`CatalogClient` is a port with two adapters:
+`CatalogClient` is a port (`src/cart/catalog.client.ts`) with two adapters:
 
-- `FixtureCatalogClient` for local tests (no catalog-svc).
-- `HttpCatalogClient` for production (`catalog-svc:4020`).
+- `HttpCatalogClient` (`src/cart/http-catalog.client.ts`) — the wired one.
+  One batch call per add, `?ids=<variantId ?? productId>`, `x-service-key`,
+  `AbortSignal.timeout(1500)`. It is **fail closed**: 5xx, abort/timeout,
+  non-JSON, or a row that does not match the zod shape all raise
+  `503 CATALOG_UNAVAILABLE`; the upstream reason is logged and never returned.
+  `data` with no row for the product is `null`, which the service maps to
+  `422 CART_PRODUCT_UNAVAILABLE`. The snapshot price is
+  `effectivePrice ?? unitPrice` — the payable price, because
+  `order-svc` re-prices checkout from the same field.
+- `FixtureCatalogClient` (`src/cart/catalog.fixture.ts`) — test-only. Every
+  e2e suite overrides the `CATALOG_CLIENT` provider with it, so the suites
+  need neither catalog-svc nor a network.
+
+`CATALOG_SVC_URL` (default `http://localhost:4020`) is validated by the Joi
+schema in `app.module.ts` and documented in `.env.example`.
 
 The cart service stores snapshots and never imports catalog code or queries
-the catalog schema. This keeps the repo independent and makes the future
-service swap a wiring change.
+the catalog schema. This keeps the repo independent and makes a future
+catalog change a wiring change.
+
+Test seam: `CATALOG_FETCH` is an optional provider (`@Optional() @Inject`)
+that defaults to the global `fetch`; the unit spec passes its own and never
+opens a socket.
 
 ### 4.8 Wishlist
 
@@ -718,6 +737,12 @@ codes:
 - Merge policy selection and edge rules (only guest, only user, both empty,
   null variant, matching line, guest-wins reassignment).
 - Idempotency replay/conflict logic.
+- Catalog adapter (`http-catalog.client.spec.ts`, 12 cases): the ids query
+  uses the variant id when there is one and the product id otherwise,
+  `effectivePrice` beats `unitPrice`, `x-service-key` is sent, the abort signal
+  exists, catalog-only fields are dropped, `available:false` is still returned,
+  an empty or mismatched `data` is `null`, and 5xx / abort / non-JSON / a
+  shape-invalid row all raise `503 CATALOG_UNAVAILABLE`.
 - Wishlist: duplicate add returns the existing item; foreign/missing delete;
   product-level uniqueness; `updated_at` touch.
 
@@ -747,6 +772,11 @@ codes:
   relay publishes keyed by `cartId` in `created_at` order, retry leaves the row
   `pending` with `attempts`/`last_error`, five failures park it `failed` and it
   is never retried, a held advisory lock makes the cycle `skipped`.
+- Catalog down: `test/catalog-failure.e2e-spec.ts` overrides `CATALOG_CLIENT`
+  with a throwing stub and asserts `503 CATALOG_UNAVAILABLE` with no upstream
+  reason in the body, and that no cart, no line and no `cart.outbox` row is
+  written. It warms Redis first, because `RedisService` runs with
+  `enableOfflineQueue: false` and a cold client's 503 would mask this one.
 - `RUN_KAFKA_E2E=1 pnpm test:e2e -- live-kafka` publishes to the real
   `ecom-kafka` and reads the record back with `readEventEnvelope` +
   `parseEventEnvelope`; skipped by default.
