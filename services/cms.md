@@ -111,10 +111,81 @@ Phase 7 and is never used by automated tests.
 | `MONGODB_URI` | Mongo connection string including database name | `mongodb://127.0.0.1:27018/ecom_cms?directConnection=true` |
 | `JWT_SECRET` | Shared access-token secret, minimum 32 characters | local-only value in `.env` |
 | `REDIS_URL` | Redis connection string | `redis://localhost:6379` |
+| `STORAGE_LOCAL_DIR` | Root of the media files; required in production | `<cwd>/storage` |
+| `SQS_TASKS_ENABLED` | Whether the rendition worker runs (`true`/`false`) | `false` in development and test, `true` in production |
+| `AWS_REGION` | SQS region | `us-east-1` |
+| `AWS_ENDPOINT_URL` | LocalStack endpoint; unset in production | unset |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | LocalStack credentials; unset in production so the SDK uses its own chain | unset |
+| `STOREFRONT_URL` | Base URL of the storefront that receives the invalidation call | `http://localhost:3000` |
+| `REVALIDATE_SECRET` | Shared secret for `POST /api/revalidate`; required in production, empty means "off" | the storefront's development placeholder |
 
 E2E tests use `ecom_cms_test`, refuse to run against a non-`_test` database,
 and drop the test database when finished. The test runner is intentionally
 serial (`fileParallelism: false`) because the suite owns one database.
+
+### Media renditions are a task, not an event
+
+`POST /api/v1/cms/admin/media` stores the bytes and the document, then enqueues
+`media.resize-image` on the SQS `media-resize-image` queue with
+`idempotencyKey: mediaId` (`cms-006`). The request does **not** wait for the
+work, and it does not fail when the queue is unavailable: the upload already
+succeeded, and a missing rendition is recoverable while a rejected upload that
+left an orphan behind is not. With `SQS_TASKS_ENABLED=false` the upload is
+simply stored without renditions — which is how every e2e suite and every
+developer without LocalStack runs.
+
+The worker (`MediaResizeService`) reads the original through `StoragePort.read`,
+records `width`/`height` from the image itself, renders `320/640/1024/1920` in
+`webp/avif/jpeg/png` into `media/<yyyy>/<mm>/<uuid>-<w>.<ext>`, and writes the
+whole manifest in one `$set`. A re-delivery is free: an existing variant of the
+same width and format is reused, and widths above the source are dropped instead
+of upscaled. Deleting an upload deletes its variants with it.
+
+A variant is served by the same file route as its original
+(`GET /api/v1/cms/media/file/<key>`): the key stays inside `mediaKeySchema`, and
+the route resolves it through the row that lists it in `variants`, which is also
+where visibility is decided.
+
+Nothing about media goes through Kafka any more. `cms.updated` and
+`blog.updated` still do (§7), and they still ride the outbox.
+
+### The storefront is told, not subscribed (`cms-007`)
+
+cms-svc deletes its own Redis keys after a commit, but the storefront's Next Data
+Cache is a different cache in a different process, so publishing also means one
+outbound HTTP call:
+
+```
+POST ${STOREFRONT_URL}/api/revalidate
+x-revalidate-secret: $REVALIDATE_SECRET
+{"tags":["cms:navigation"]}
+```
+
+Three mutations send exactly one tag each, and nothing else does:
+
+| Mutation | Tag |
+|---|---|
+| `PUT /admin/settings/global` | `cms:global-settings` |
+| `PUT /admin/settings/page/:pageKey` | `cms:page-settings:<pageKey>` |
+| `PUT /admin/navigation` | `cms:navigation` |
+
+Sections, pages and blogs send nothing: the storefront has no tag and no reader
+for them yet (`sf-061`/`sf-062`), and its endpoint answers `400 INVALID_TAGS` for
+any tag outside `lib/cms/tags.ts`. The two vocabularies have to be authored
+together, which is why the tag strings live in one place
+(`src/revalidate/revalidate.service.ts`).
+
+The call is best-effort and bounded:
+
+* a failure (500, timeout, connection refused) is one warn line plus a counter —
+  a publish that already committed is never failed by a cache hint;
+* `AbortSignal.timeout(2000)` — staleness for one TTL is cheaper than a slow
+  write;
+* no `REVALIDATE_SECRET` means no call at all, and production refuses to boot
+  without it, so "silently off" cannot happen there.
+
+A republish is idempotent: the same tag is sent again and the storefront's
+`revalidateTag` is a no-op on a tag with nothing cached.
 
 ## 5. Security and shared HTTP behavior
 

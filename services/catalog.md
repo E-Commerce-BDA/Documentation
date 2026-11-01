@@ -33,6 +33,13 @@ order-svc   ──► order.created     ─┴─► catalog-svc consumer (group
                                              └── product.imported → upsert product/variants/images
 ```
 
+**Production data arrives through the admin CRUD routes and through
+`product.imported`.** The fixture seed (`db/002-seed-catalog.sql`, run by
+`pnpm db:seed`) never runs in production: the script refuses without
+`CATALOG_ALLOW_FIXTURE_SEED=true` and refuses outright when `NODE_ENV` is
+`production`, and `main.ts` re-checks the flag at boot so a production process
+configured with it fails before it opens a database connection (`cat-011`).
+
 Two consequences worth stating plainly:
 
 - **The producer half never runs during a consume.** An import does not publish

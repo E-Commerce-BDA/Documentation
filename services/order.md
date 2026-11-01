@@ -36,8 +36,7 @@ Customer's Browser / BFF          Nginx API Gateway               order-svc (:40
                     │ 5. Capture payment (order exists now)              │
                     │ 6. TX2: payments→captured, orders→                 │
                     │    confirmed/paid, history, outbox row             │
-                    │ 7. Cache + unlock + best-effort cart    │
-                    │    conversion (Phase-0 bridge)          │
+                    │ 7. Cache + unlock                                  │
                     ▼                                                    ▼
               PostgreSQL :5433                                      Redis :6379
           Schema "order" (8 tables)                         Replay cache & Locks
@@ -48,7 +47,7 @@ Customer's Browser / BFF          Nginx API Gateway               order-svc (:40
 * **Pre-transaction stock reservation**: `order-svc` reserves stock with `catalog-svc` *before* opening TX1, preventing external HTTP latency from holding open database connections. The hold must precede the order row, because the row is the first durable write and a pending order with no hold could be confirmed against stock that was never reserved. Any failure after the hold releases it with `POST /internal/stock/release { reservationId }`, and a terminal transition (`cancelled`, `failed`) releases it again from the order row — a retry can never inflate stock because no quantities are sent.
 * **Transactional outbox guarantee**: The order row and its `order.created` event row are written inside the *exact same* SQL transaction (TX2). The Dual-Write Problem is eliminated: an order cannot exist without its event, and an event cannot exist without its order.
 * **Asynchronous relay worker**: A background worker polls pending events from `order.outbox` using partial index `idx_outbox_pending`, publishes them, and marks them `published`.
-* **Cart conversion bridge (Phase-0)**: after the confirmation is cached, checkout calls `POST /api/v1/cart/internal/carts/:userId/convert` on cart-svc with `x-service-key` and a 2 s timeout, fire-and-forget. `200 {cartId, convertedAt}` means the active cart became `converted`; `204` means there was nothing to convert, which also makes a retry silent. Any failure is a `warn` in the log and never fails the order — the shopper keeps a `converted` cart or, worst case, an active cart that goes to the abandoned-cart flow. The bridge disappears when cart-svc consumes `order.created` (`ca-009`).
+* **No cart call (`ord-012`)**: checkout ends at the cached confirmation. Converting the cart is cart-svc's own reaction to `order.created` (`ca-009`), consumed after TX2 commits — so it happens exactly once, it happens even when the response never reaches the browser, and order-svc holds no `CART_SVC_URL`. The Phase-0 `POST /api/v1/cart/internal/carts/:userId/convert` bridge is gone from both sides; it had been dead since ca-009 deleted the route, so every checkout was paying a 404 and a warning log line.
 
 ---
 
@@ -149,14 +148,13 @@ PostgreSQL schema `"order"` contains 8 dedicated tables:
 
 ## 6. Verification & Automated Test Inventory
 
-* **Unit Tests (78 tests across 6 test suites)**:
+* **Unit Tests (75 tests across 5 test suites)**:
   * `orders.service.spec.ts` (24 tests): FSM transition rules, terminal state immutability, customer ownership RBAC, stock-hold release on cancellation, and the refund ledger (provider call, replay, in-flight guard, no-captured-payment, provider failure, retry amount).
-  * `checkout.service.spec.ts` (25 tests): user-scoped idempotency replay, body-hash conflicts, corrupt cache, Redis fail-closed 503, pending-first saga, capture decline, TX2 failure compensation, resume, hold release exactly once, and the `OutboxWrite` shape the outbox path expects (`ord-011`).
+  * `checkout.service.spec.ts` (26 tests): user-scoped idempotency replay, body-hash conflicts, corrupt cache, Redis fail-closed 503, pending-first saga, capture decline, TX2 failure compensation, resume, hold release exactly once, the `OutboxWrite` shape the outbox path expects (`ord-011`), and no outbound HTTP call while confirming an order (`ord-012`).
   * `discounts.service.spec.ts` (17 tests): percent/fixed calculations, cart clamping, date windows, and usage thresholds.
   * `health.service.spec.ts` (4 tests): PostgreSQL and Redis ping health checks.
   * `canonical-json.spec.ts` (4 tests): stable key ordering and hashing of equivalent payloads.
-  * `cart.client.spec.ts` (4 tests): the conversion call sends `x-service-key`, a `204` is silent and a `404` warns without failing the confirmation.
-* **E2E Integration Tests (82 tests across 8 test suites — 79 pass, 3 skipped)**:
+* **E2E Integration Tests (85 tests across 8 test suites — 82 pass, 3 skipped)**:
   * `security.e2e-spec.ts` (12 tests): structured error envelope, `x-request-id` tracing, `Cache-Control: no-store`, `ServiceKeyGuard` enforcement, RBAC isolation, prototype pollution rejection, and SQL injection safety.
   * `orders.e2e-spec.ts` (22 tests): customer history lookup, cross-customer forbidden isolation, admin status progression (`confirmed` &rarr; `processing` &rarr; `shipped` &rarr; `delivered`), rollback rejection, status history timeline, and refunds against a ledger (provider called once with the stored transaction, replay, provider failure leaving order and payment untouched, retry on the same row, `409 NO_CAPTURED_PAYMENT`, no `order.refunded` event).
   * `checkout.e2e-spec.ts` (18 tests, 1 skipped): checkout against live PostgreSQL + Redis, cross-user key isolation, DB-authoritative replay after a cache flush, concurrent duplicates, Redis-outage drill, the payment saga (capture after the pending row, decline, TX2 failure refund, resume), and the stock/coupon failure matrix.

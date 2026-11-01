@@ -859,7 +859,7 @@ codes:
 | Wishlist catalog validation | catalog-svc absent; current phase validates `productId` shape only | validate/hydrate when catalog adapter lands |
 | Cart merge role alignment | `POST /cart/merge` accepts any verified JWT; wishlist requires `customer` | align in a separate auth task |
 | Abandonment worker | TTL scan is a separate job | `last_activity_at` is ready |
-| order-svc still calls the deleted convert route | `ca-009` removed the route before its caller; `CartClient` treats `404` as non-fatal, so checkout is unaffected and each checkout logs one warning | `ord-012` deletes the call site |
+| ~~order-svc still calls the deleted convert route~~ | resolved by `ord-012`: `ca-009` removed the route before its caller, so checkout logged one `404` warning per order until the call site and `CartClient` were deleted. Conversion now comes only from the `order.created` consumer (§ below) | done |
 | `cart.processed_events` retention | rows are claimed per event id and never swept; the `processed_at` index exists and has no consumer | a sweeper with a retention window, alongside the catalog one |
 | Currency | store-level setting later | do not add a cart column |
 
