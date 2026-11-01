@@ -118,13 +118,22 @@ Both are **controlled** blocks in `components/commerce/` — the island owns
 
 - **Gallery** `{ images, activeIndex, onIndexChange, ratio?, fit? }` — one
   large frame plus a thumb rail; `lib/commerce/gallery.ts` orders primary-first
-  and dedupes by `src` so an admin who repeats an image cannot create a dead
-  thumb. Arrow keys move the index; `aria-current` marks the active thumb.
+  (then `sortOrder`, then upload order) and dedupes by `url` so an admin who
+  repeats an image cannot create a dead thumb. Empty urls are dropped, and a
+  missing alt falls back to the product name at the call site (`<img src="">`
+  re-requests the page; an unnamed product photo is unusable either way). Arrow
+  keys wrap the index from a focused thumb; `aria-current` marks the active
+  one, `data-active` drives the paint.
 - **VariantSelector** `{ options, selected, onSelect, disabled? }` —
   `lib/commerce/variants.ts` prunes impossible combinations (an option value no
   in-stock variant carries is rendered `aria-disabled`, never removed — removals
   shift the grid under the shopper's cursor) and resolves the default variant
-  (first in-stock). The selection key order is the URL key order
+  (first in-stock). Availability is judged **against the rest of the selection**
+  ("Red is out of stock in M"), with one escape hatch: when the current
+  combination matches nothing at all, values fall back to the plain rule so the
+  shopper is never locked in a dead end. `aria-disabled` values stay focusable
+  (no `disabled` attribute) — a keyboard shopper must be able to reach them and
+  hear why they cannot be picked. The selection key order is the URL key order
   (`pages/routing.md` §4).
 
 URL sync (`?color=&size=`), variant history pushes, and the compare tray are
