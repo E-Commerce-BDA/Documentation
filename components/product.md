@@ -139,3 +139,32 @@ Both are **controlled** blocks in `components/commerce/` — the island owns
 URL sync (`?color=&size=`), variant history pushes, and the compare tray are
 **sf-055**; v1 keeps the selection in island state and mirrors it into the URL
 on commit only.
+
+## 15. ProductGrid + the catalog mapper (landed with the listing slice)
+
+**ProductGrid** (`components/commerce/ProductGrid.tsx`, `.sf-grid`) is
+`{ items, pendingIds?, addedIds?, onOpen?, onQuickAdd?, columns?, empty?, label? }`
+— **maps, never fetches**. A listing page, a category rail and the home's
+featured row share one arrangement of the same cards; the owner decides where the
+data came from (catalog in RSC, the cart store, a CMS section — sf-060). Columns
+arrive as the theme's three `productCard.cols*` numbers and leave as three inline
+vars (`--grid-cols-{phone,tablet,desktop}`) resolved by `toGridColumns`, so the
+media-query ladder lives in one CSS block, mobile-first, not in breakpoints
+repeated per route. `pendingIds`/`addedIds` mark the **cell** (`data-pending` /
+`data-added`), not the card — a card that learned about carts would not be a dumb
+block — painted with explicit solids, never `opacity`. An empty list renders the
+owner's `empty` face (an `EmptyState`), never a blank region.
+
+**`lib/commerce/fromCatalog.ts`** is the only module allowed to know both catalog
+shapes (`ProductListItemDto` on a listing, `ProductDetailDto` on a PDP) and the
+card's `ProductCardData`. Its rules are decisions, not JSON shuffling: the
+displayed price is `effectivePrice ?? price` (the same field cart-svc snapshots,
+ADR 27, so grid and cart cannot disagree); `compareAt` renders only above the
+displayed price; stock collapses to the card's own `in|low|out` cut; `url` is
+`/products/<slug>` (routing.md §1) with no invented `slug` field; the carousel
+reuses `orderImageRows` so a card cover and a PDP frame agree; `cardSettings`
+passes through **raw** (the card keeps the theme in its precedence chain); and
+money is read as a number — the services parse `DECIMAL` at their own DB boundary
+(ADR 41), so a string would be a bug to report, not a shape to absorb. It never
+throws, never fetches, never coerces.
+

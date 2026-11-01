@@ -24,7 +24,7 @@
 | QuantityStepper / EmptyState | `commerce.md` §1–§2 | ✅ done |
 | Rating / Price / Table | `commerce.md` *(same doc, later sections)* | ⬜ |
 | SearchAutocomplete / CheckoutSteps | `commerce.md` *(to append, grouped)* | ⬜ |
-| ProductCard / Gallery / VariantSelector | `product.md` | ✅ done (§1–§10 card, §14 gallery + variant selector) |
+| ProductCard / Gallery / VariantSelector / ProductGrid | `product.md` | ✅ done (§1–§10 card, §14 gallery + variant selector, §15 grid + `fromCatalog`) |
 | HeroSection | `sections.md` §1 | ✅ done (single static slide; CMS slides with sf-060) |
 | BannerSection / FeaturedProducts / CategoryShowcase / BrandStrip / BlogTeaser | `sections.md` *(to append, grouped)* | ⬜ |
 | Shell purpose + mount rule + search overlays + cart blocks | `shell-cart.md` | ✅ done (§4 live: PageHeader, CartLineItem, MiniCartDrawer, CartProvider) |
