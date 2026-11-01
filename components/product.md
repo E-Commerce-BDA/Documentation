@@ -111,7 +111,22 @@ Touch: hover layer is hover-only; on `(hover: none)` actions hide unless `showAc
 - Compare (`onCompare?` + `compareBehavior: "page" | "modal"` — admin selects destination; both land in the compare slice).
 - Skeleton face (loading shimmer — lands with listing slice, not per-card).
 
-## 14. Gallery / VariantSelector (stubs — one line each, no placeholders)
+## 14. Gallery / VariantSelector (landed with the PDP slice)
 
-- **Gallery**: PDP media rail (thumbs + zoom contract) — lands with PDP slice.
-- **VariantSelector**: size/color pickers feeding `selectedAttribute` — lands with the attribute-thinking task.
+Both are **controlled** blocks in `components/commerce/` — the island owns
+`activeIndex` / `selected`, the block only paints and calls back.
+
+- **Gallery** `{ images, activeIndex, onIndexChange, ratio?, fit? }` — one
+  large frame plus a thumb rail; `lib/commerce/gallery.ts` orders primary-first
+  and dedupes by `src` so an admin who repeats an image cannot create a dead
+  thumb. Arrow keys move the index; `aria-current` marks the active thumb.
+- **VariantSelector** `{ options, selected, onSelect, disabled? }` —
+  `lib/commerce/variants.ts` prunes impossible combinations (an option value no
+  in-stock variant carries is rendered `aria-disabled`, never removed — removals
+  shift the grid under the shopper's cursor) and resolves the default variant
+  (first in-stock). The selection key order is the URL key order
+  (`pages/routing.md` §4).
+
+URL sync (`?color=&size=`), variant history pushes, and the compare tray are
+**sf-055**; v1 keeps the selection in island state and mirrors it into the URL
+on commit only.

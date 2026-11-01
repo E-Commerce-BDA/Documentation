@@ -1,7 +1,7 @@
 # Shell + cart blocks — purpose, mount rule, residents
 
-> Scope: `frontend/storefront/components/shell/*` (production composed-dumb chrome) + cart blocks when the cart slice lands.
-> Status: Active | Version 1.1 | Date: 2026-10-27
+> Scope: `frontend/storefront/components/shell/*` (production composed-dumb chrome) + the cart blocks that mount alongside it.
+> Status: Active | Version 1.2 | Date: 2026-11-01
 > Parent: `components/README.md` (index + conventions)
 
 ---
@@ -37,15 +37,39 @@
 | NavAccountButton | `components/shell/NavAccountButton.tsx` | User glyph; menu deferred (no menu primitive) |
 | NavWishlistButton | `components/shell/NavWishlistButton.tsx` | Heart + capped count badge; guest click prompts sign-in (no guest wishlist) |
 | MobileDrawer | `components/shell/MobileDrawer.tsx` | Slide panel + NavLinks; trap + Esc (parent owns open) |
-| Navbar | `components/shell/Navbar.tsx` | Regions-gated composition; --nb-* inline; zero state |
+| Navbar | `components/shell/Navbar.tsx` | Regions-gated composition; --nb-* inline; `cart: { count, onOpen }` prop, zero local state |
+| PageHeader | `components/shell/PageHeader.tsx` | `{ eyebrow?, title, breadcrumb?, actions? }` — the `pages/routing.md` §2 contract |
+| CartLineItem | `components/shell/CartLineItem.tsx` | `{ line, pending?, onQty, onRemove }`; thumb + name + variant + stepper + line total |
+| MiniCartDrawer | `components/shell/MiniCartDrawer.tsx` | `{ open, onClose, items, totals, status, onQty, onRemove, onCheckout }`; Esc + overlay close + focus restore |
 | NavbarMount | `app/_components/NavbarMount.tsx` | Owns disclosure/dismiss/slides/scroll-hide/autoplay; auth self-suppress |
 | SearchMount | `components/shell/SearchMount.tsx` | Registry's first caller; lazy variant + own search state (absorbed sf-026) |
 | demoNavInput | `lib/shell/demoNavInput.ts` | Shared demo seam; cms-svc swaps one line per site |
 
 Hook homes: shared islands in `app/hooks/` (`useSearch`); shell-local hooks beside their component; `lib/` stays pure (no hooks — state violates purity). Pure presentation maps (`tagTone`-style tag→tone tables) live in `lib/<domain>/`, never in components — one home, both variants read it.
 
-## 4. Cart blocks (to-come at cart slice)
+## 4. Cart blocks (live)
 
-`CartLineItem`, `MiniCartDrawer`, `Footer` land here with the same shape: props→JSX, settings-driven, showcase-demoed, trio-tested, indexed here + README §1 + `0.Project-Overview.md` §14 same-commit. This section stays a stub until then — no placeholder components that get deleted later (AGENTS.md route-chrome rule, applied to shell).
+`CartLineItem`, `MiniCartDrawer` and `PageHeader` live here with the same shape:
+props→JSX, settings-driven, trio-tested, indexed here + README §1 +
+`0.Project-Overview.md` §14 same-commit. `Footer` still lands with the launch
+slice.
 
-`NavCartButton.tsx` already exists on disk but stays **unmounted and unwired** until this slice — a trigger with no drawer is dead UI, and dead UI is worse than absent UI. It mounts here with the drawer, not before.
+`CartProvider` (`app/_components/CartProvider.tsx`) is the *island* half: it owns
+the cart store, renders `<MiniCartDrawer>` and feeds `NavbarMount` the
+`cart={{ count, onOpen }}` prop. It is indexed here because the drawer and the
+provider are one unit — the drawer never mounts anywhere else.
+
+`NavCartButton.tsx` is now **wired**: the disabled "coming soon" trigger is gone
+and the button renders `count` from the provider. The e2e loop is
+NavCartButton → `onOpen` → drawer → `CartLineItem` → `onCheckout` → `/checkout`.
+
+Cart state rules (why the provider exists):
+
+- Optimistic mutation → BFF → revert + `Toast` on failure. A quantity change is
+  debounced per line before it leaves the island.
+- The drawer reads the **same** store as `/cart`; two surfaces, one reducer
+  (`lib/cart/state.ts`), so a quantity changed in the drawer is already correct
+  when the cart page paints.
+- Guest identity is the `sf_cid` cookie (`proxy.ts` mints it); the drawer never
+  needs a sign-in to show lines, and sign-in merges the guest cart server-side
+  (A4.6).

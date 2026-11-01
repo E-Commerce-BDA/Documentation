@@ -21,11 +21,13 @@
 | Checkbox / Radio / Toggle / Slider | `form-controls.md` *(to create, grouped)* | ⬜ |
 | Badge / Card / Dialog / IconButton | `feedback.md` *(to create, grouped)* | ⬜ |
 | Tabs / Skeleton / Pagination / Breadcrumbs / Accordion | `navigation.md` *(to create, grouped)* | ⬜ |
-| Rating / Price / QuantityStepper / Toast / Table / EmptyState | `commerce.md` *(to create, grouped)* | ⬜ |
-| SearchAutocomplete / CheckoutSteps | `commerce.md` *(to create, grouped)* | ⬜ |
-| ProductCard / Gallery / VariantSelector | `product.md` | ✅ done (card §1–10; gallery/variants stubbed §11) |
-| HeroSection / BannerSection / FeaturedProducts / CategoryShowcase / BrandStrip / BlogTeaser | `sections.md` *(to create, grouped)* | ⬜ |
-| Shell purpose + mount rule + search overlays; cart blocks at cart slice | `shell-cart.md` | ✅ done (shell half; cart to-come §4) |
+| QuantityStepper / EmptyState | `commerce.md` §1–§2 | ✅ done |
+| Rating / Price / Table | `commerce.md` *(same doc, later sections)* | ⬜ |
+| SearchAutocomplete / CheckoutSteps | `commerce.md` *(to append, grouped)* | ⬜ |
+| ProductCard / Gallery / VariantSelector | `product.md` | ✅ done (§1–§10 card, §14 gallery + variant selector) |
+| HeroSection | `sections.md` §1 | ✅ done (single static slide; CMS slides with sf-060) |
+| BannerSection / FeaturedProducts / CategoryShowcase / BrandStrip / BlogTeaser | `sections.md` *(to append, grouped)* | ⬜ |
+| Shell purpose + mount rule + search overlays + cart blocks | `shell-cart.md` | ✅ done (§4 live: PageHeader, CartLineItem, MiniCartDrawer, CartProvider) |
 
 Small related components share one grouped doc (see §3 rule 4); Button,
 Icons, and Tooltip earned standalone docs as system pioneers (first model,

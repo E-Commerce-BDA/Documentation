@@ -125,6 +125,12 @@ components/sections/HeroSection.tsx
     dots + arrow buttons, no interval, no autoplay
 ```
 
+> **v1 (sf-051) ships the single-slide face only**, as flat props —
+> `{ eyebrow?, title, body?, ctas?, image?, align? }` with `DEFAULT_HERO` in
+> `lib/sections/hero.ts` (`components/sections.md` §1–§2). The `slides` array
+> above is the CMS shape and lands with **sf-060**, after the contracts repin in
+> sf-053 (`@ecom/contracts` 1.7.0 ships no Section schemas).
+
 - The text panel: eyebrow (small caps, 12px, opacity 0.7), headline (`<h1>`, 32px desktop / 24px mobile, `textColor`), subcopy (16px, `textColor` at 0.8), CTA row — `0-3` buttons in `flex flex-wrap gap-3`; each button inline style from `ctas[i].bg/textColor/borderColor/borderWidth/borderRadius` via `lib/cms/resolve.ts`; `ctas: []` renders no CTA row.
 - The image panel: relative wrapper with `ratio`; background div with `imageBgColor`; `<img>` with `object-cover`, `width`/`height` from CMS, `loading="eager"` for the first slide (LCP), `loading="lazy"` for other slides.
 - Split is applied via inline `gridTemplateColumns` so it is per slide and does not require CSS classes per variant.

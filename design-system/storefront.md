@@ -177,7 +177,7 @@ Base `4px`: `4 · 8 · 12 · 16 · 20 · 24 · 32 · 56 · 72`. Hero `padding 72
 
 ### 7.5 Product Card — `radius 12`, `ph` gradient `#E6F7FB→#CAF0F8`, title 14/600, price muted, sale badge `#FF6B4A`+ink, strike price + coral sale price.
 
-### 7.6 Gallery / Variant Selector / Cart — `photoSettings` `P>S>G`; `CartLineItem` + `MiniCartDrawer` on `store/cart.ts`.
+### 7.6 Gallery / Variant Selector / Cart — `photoSettings` precedence is `P>S>G`; `CartLineItem` + `MiniCartDrawer` read `lib/cart/state.ts` (pure reducer) through `app/_components/CartProvider.tsx`. Cart blocks live in `components/shell/` (`shell-cart.md` §4 is the authority — there is no `components/cart/`).
 
 ### 7.7 Hero Carousel — Slide Background Gradients
 
@@ -237,7 +237,7 @@ Shell: `Announcement 36px` → `Navbar 64px sticky` → `Hero min-height 540px (
 
 ## 11. Component Inventory
 
-`components/ui/` (`Button`, `IconButton`, `Badge`, `Input`, `Textarea`, `Select`, `ChipInput`, `ColorPicker`, `Slider`, `Toggle`, `ThreeStateControl`, `Dialog`, `SortableList`), `components/sections/` (`HeroSection`, `BannerSection`, `FeaturedProducts`, `CategoryShowcase`, `BrandStrip`, `BlogTeaser`), `components/product/` (`ProductCard`, `Gallery`, `VariantSelector`), `components/cart/` (`CartLineItem`, `MiniCartDrawer`). All dumb `props → JSX`; hero `<2KB` JS.
+`components/ui/` (`Button`, `IconButton`, `Badge`, `Input`, `Textarea`, `Select`, `ChipInput`, `ColorPicker`, `Slider`, `Toggle`, `ThreeStateControl`, `Dialog`, `SortableList`, `QuantityStepper`, `EmptyState`), `components/sections/` (`HeroSection`; BannerSection, FeaturedProducts, CategoryShowcase, BrandStrip, BlogTeaser with sf-060), `components/commerce/` (`ProductCard`, `Gallery`, `VariantSelector`, `ProductGrid`), `components/shell/` (`CartLineItem`, `MiniCartDrawer`, `PageHeader`). All dumb `props → JSX`; hero `<2KB` JS.
 
 ---
 

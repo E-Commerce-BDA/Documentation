@@ -3,7 +3,7 @@
 > Scope: every storefront route, the shared page-header contract, query
 > rules, PDP variant URLs, and canonical/SEO discipline. Single authority —
 > page docs and implementations reference this file, never re-decide it.
-> Status: Active | Version 1.0 | Date: 2026-09-18
+> Status: Active | Version 1.1 | Date: 2026-11-01
 > Parent: `0.Project-Overview.md` §14 (Docs Index) · `5.Features.md` (acceptance)
 
 ---
@@ -18,6 +18,7 @@
 | `/compare?ids=a,b` | Compare (max 4) | unordered set → query, not path |
 | `/cart` | Cart | top-level, title only |
 | `/checkout` | Checkout | auth-required; title only |
+| `/checkout/confirmation/[orderId]` | Order confirmation | auth-required; bookmarkable — order number is the identity (A5.8) |
 | `/account/*` | Account (orders/addresses/wishlist) | auth-required; sub-routes, bookmarkable |
 | `/blog`, `/blog/category/[slug]`, `/blog/[slug]` | Blog surfaces | article gets breadcrumb |
 | `/signin`, `/signup` | Auth (`(auth)` group) | NOT `/login`; conversion chrome (minimal nav, no footer noise) |
