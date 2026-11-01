@@ -312,28 +312,28 @@ It is not a cart and never emits `cart.updated`.
 
 ---
 
-### 4.9 Internal conversion (Phase-0 bridge)
+### 4.9 Internal conversion — removed (`ca-009`)
 
-`POST /api/v1/cart/internal/carts/:userId/convert` — service-to-service only,
-guarded by `x-service-key` (`401 SERVICE_KEY_INVALID` otherwise).
+`POST /api/v1/cart/internal/carts/:userId/convert` **no longer exists**. It answered `404` with
+and without `x-service-key`, and `test/internal.e2e-spec.ts` asserts exactly that one thing.
 
-- In one transaction: `UPDATE cart.carts SET status='converted',
-  last_activity_at=now() WHERE user_id=$1 AND status='active' RETURNING …`, then
-  read the items and write the `cart.updated` row. The partial unique index
-  `one_active_cart_per_user` guarantees at most one row, so there is no
-  `FOR UPDATE`.
-- `200 {cartId, convertedAt}` when a cart was converted, `204` when the user has
-  no active cart — so a replay is a silent no-op — and `400 VALIDATION_FAILED`
-  for a non-uuid user id.
+It was the Phase-0 bridge from `ca-007`: order-svc called it fire-and-forget after a confirmed
+order, because no `order.created` consumer existed yet. `ca-009` replaced it with that consumer
+(§6.5), so the conversion is now a domain consequence instead of a checkout dependency — and
+checkout no longer needs cart-svc to be up. What the route used to guarantee still holds:
+
+- `UPDATE cart.carts SET status='converted', last_activity_at=now() WHERE user_id=$1 AND
+  status='active' RETURNING …`; the partial unique index `one_active_cart_per_user` means at most
+  one row, so there is no `FOR UPDATE`.
 - Items are **not** deleted: `converted` is history for analytics and support.
-- One `cart.updated` with `status: 'converted'` (and the cart's items) is queued
-  in `cart.outbox` in that transaction, so the event carries the same snapshot
-  the response reports.
-- `INTERNAL_SERVICE_KEY` is mandatory when `NODE_ENV=production`; the app refuses
-  to boot without it, so the development fallback cannot reach a deployment.
-- Why it exists: checkout confirms the order before any `order.created` consumer
-  exists (ca-009). order-svc calls this route fire-and-forget; a failure costs an
-  abandoned-cart email, never the order. The route is removed in ca-009.
+- One `cart.updated` with `status: 'converted'` (and the cart's items) is queued in `cart.outbox`
+  in that transaction, so the event carries the same snapshot the row now holds.
+- Replay is a no-op, but the mechanism changed: the event id is claimed in
+  `cart.processed_events` inside the conversion transaction, so a redelivery writes neither a
+  second conversion nor a second event.
+
+`INTERNAL_SERVICE_KEY` remains mandatory when `NODE_ENV=production`; the stock routes on
+catalog-svc are its remaining caller-side use.
 
 ## 5. Settings subsystem
 
@@ -567,6 +567,47 @@ merge transaction. A broker outage delays publication; the merge and the
 response are unaffected, and the relay retries. A future `cart.merged` event
 would be a contract change, not a v1 addition.
 
+### 6.5 Consumer — `order.created` (`ca-009`)
+
+cart-svc consumes exactly one topic, and it is how a cart is converted.
+
+| Item | Value |
+|---|---|
+| Transport | `@nestjs/microservices` Kafka transport via `@ecom/messaging` `0.3.0` (`createKafkaConsumerStrategy`, `KafkaEventHandler`) |
+| Consumer group | `cart-svc` — exactly the service name (`postfixId: ''`), never `cart-svc-server` |
+| Topic / DLQ | `order.created` / `order.created.dlq` |
+| Dedupe | `cart.processed_events` (`event_id` PK, `topic`, `processed_at`), claimed **inside** the conversion transaction |
+| Switch | `KAFKA_CONSUMER_ENABLED` (default `true`, `false` in the e2e config) |
+| Stats | **No endpoint yet.** The nine shared counters live in-process in `KafkaEventHandler` (`accepted`, `skipped`, `committed`, `duplicate`, `ignored`, `invalid`, `dlq`, `commit`, `stalled`), but cart-svc does not expose them — only `catalog-svc` and `search-svc` have a `/consumer-stats` route (`10.Observability.md §3`). Until one is added, the group's position comes from `kafka-consumer-groups.sh --describe --group cart-svc`. Named debt, not coverage |
+
+One event, one transaction:
+
+1. `readEventEnvelope` → `parseEventPayload('order.created')`; a payload that fails the contract
+   never opens a transaction.
+2. `ProcessedEventsStore.claim(client, eventId, 'order.created')` → `false` means this event id was
+   already applied: the outcome is `duplicate`, nothing is written, the offset commits.
+3. `CartRepository.convertForOrder(client, userId)` — the `UPDATE … RETURNING` from §4.9. No active
+   cart (the shopper never added anything, or already checked out) is `{ kind: 'ignored', reason:
+   'no-active-cart' }`: committed, **not** dead-lettered, because that is normal life, not a
+   failure.
+4. Otherwise `record(client, cart)` writes the `cart.updated` row, and the claim, the status change
+   and the event commit or roll back **together**. That is the whole idempotency argument: there is
+   no window in which a conversion exists without its claim.
+
+Payload fields used: `userId` (whose cart) and nothing else. `orderId`, `reservationId` and the
+totals are catalog's and analytics' business.
+
+**Failure policy.** `invalid-json` / `invalid-envelope` / `invalid-payload` are dead-lettered on the
+first attempt. Everything else — the database down, a transaction deadlock — walks the retry ladder
+(1/2/4/8/16 s) and lands as `transient-exhausted`. A `userId` the cart has never seen is *not* an
+error and never reaches the DLQ.
+
+**Debt (named, not hidden).** order-svc still calls the deleted endpoint through `CartClient`, which
+already treats a `404` as non-fatal, so every checkout logs one warning until `ord-012` removes the
+call. Checkout is unaffected either way; the warning is noise, and it is the price of landing the
+consumer before the caller change.
+
+
 ---
 
 ## 7. Security
@@ -584,7 +625,9 @@ would be a contract change, not a v1 addition.
 | `GET /wishlist` | verified JWT + `customer` | own wishlist only; no guest wishlist |
 | `POST /wishlist/items` | verified JWT + `customer` | own wishlist only; duplicate add returns the existing item |
 | `DELETE /wishlist/items/:id` | verified JWT + `customer` | own wishlist only; missing/foreign → 404 |
-| `POST /cart/internal/carts/:userId/convert` | `x-service-key` | service-to-service only; no JWT; 204 on replay; not exposed through Nginx |
+
+The `POST /cart/internal/carts/:userId/convert` route that used to sit in this table is **gone**
+(`ca-009`, §4.9); conversion is triggered by `order.created`, not by a caller.
 
 Wishlist is the first customer-role route to verify the JWT in cart-svc.
 Guests are prompted to sign in; the storefront carries the pending product
@@ -779,7 +822,17 @@ codes:
   `enableOfflineQueue: false` and a cold client's 503 would mask this one.
 - `RUN_KAFKA_E2E=1 pnpm test:e2e -- live-kafka` publishes to the real
   `ecom-kafka` and reads the record back with `readEventEnvelope` +
-  `parseEventEnvelope`; skipped by default.
+  `parseEventEnvelope`; skipped by default. `live-kafka.order-created.e2e-spec.ts`
+  (also gated) publishes a real `order.created`, waits for the consumer to claim
+  it under group `cart-svc`, and asserts the cart is `converted` with exactly one
+  `cart.outbox` row.
+- Consumer (`order-created.e2e-spec.ts`, `order-created.handler.spec.ts`,
+  `cart-consumer.controller.spec.ts`): a consumed event converts the cart, writes
+  exactly one `cart.outbox` row and exactly one `cart.processed_events` row; a
+  replay of the same event id writes neither a second row nor a second event; a
+  user with no active cart is `ignored`, not dead-lettered; a payload the contract
+  rejects never opens a transaction and leaves no claim; the offset is committed
+  only after the DLQ write, and a failed DLQ write throws instead of committing.
 
 ### Style/quality gates
 
@@ -806,6 +859,8 @@ codes:
 | Wishlist catalog validation | catalog-svc absent; current phase validates `productId` shape only | validate/hydrate when catalog adapter lands |
 | Cart merge role alignment | `POST /cart/merge` accepts any verified JWT; wishlist requires `customer` | align in a separate auth task |
 | Abandonment worker | TTL scan is a separate job | `last_activity_at` is ready |
+| order-svc still calls the deleted convert route | `ca-009` removed the route before its caller; `CartClient` treats `404` as non-fatal, so checkout is unaffected and each checkout logs one warning | `ord-012` deletes the call site |
+| `cart.processed_events` retention | rows are claimed per event id and never swept; the `processed_at` index exists and has no consumer | a sweeper with a retention window, alongside the catalog one |
 | Currency | store-level setting later | do not add a cart column |
 
 ---

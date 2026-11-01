@@ -323,9 +323,9 @@ Returns summary statistics for the search index. Requires header `x-service-key`
 
 ### 4.5 `GET /api/v1/search/internal/consumer-stats` (Internal)
 
-Per-outcome counters for the event consumer (`srch-001`). Requires header
-`x-service-key`; `Cache-Control: no-store`. Process-local and reset on boot —
-it answers "what happened since the last deploy", not "what happened ever".
+Per-outcome counters for the event consumer (`srch-001`) plus the group's position (`srch-002`).
+Requires header `x-service-key`; `Cache-Control: no-store`. Process-local and reset on boot — it
+answers "what happened since the last deploy", not "what happened ever".
 
 **Response `200 OK`:**
 ```json
@@ -335,7 +335,11 @@ it answers "what happened since the last deploy", not "what happened ever".
   "duplicate": 3,
   "ignored": 40,
   "invalid": 0,
-  "dlq": 0
+  "dlq": 0,
+  "lag": { "product.updated": 0, "product.imported": 2 },
+  "totalLag": 2,
+  "lastCommit": { "topic": "product.updated", "partition": 0, "offset": "91" },
+  "sampledAt": "2026-11-01T10:00:15.000Z"
 }
 ```
 
@@ -352,6 +356,13 @@ it answers "what happened since the last deploy", not "what happened ever".
 `dlq` is the delivery. A DLQ publish that fails leaves both at zero and the
 retry ladder takes over.
 
+`lag`, `totalLag`, `lastCommit` and `sampledAt` were **added** by `srch-002` and are additive: the
+six counters mean exactly what they meant before. `lag` is per topic
+(`fetchTopicOffsets − fetchOffsets({ groupId: 'search-svc' })`), `-1` committed offsets count as
+"never committed" rather than as lag, and all four are `null`/empty until the first sample — the
+sampler runs on a 15 s timer and only once the consumer has joined, so a test process reports
+`{ lag: {}, totalLag: 0, lastCommit: null, sampledAt: null }`.
+
 ---
 
 ## 5. Event Ingestion Pipeline (Kafka)
@@ -366,10 +377,18 @@ retry ladder takes over.
 | `blog.updated` | `blogId` | `BlogUpdatedPayload` | Upsert as `blog`. If `status == 'draft'`, sets index status to `inactive`. |
 
 ### Kafka Consumer Specifications
-- **Client library:** `kafkajs`
-- **Consumer Group:** `search-svc`
+- **Transport:** the `@nestjs/microservices` Kafka transport, through `@ecom/messaging` `0.3.0`
+  (`srch-002`). `src/events/search-consumer.controller.ts` declares one `@EventPattern` per topic and
+  hands the raw record to `KafkaEventHandler.run(ctx, topic, raw, …)`. `@Payload` + `@Ctx` are
+  load-bearing: Nest's `RpcContextCreator` otherwise maps only the first positional argument, `ctx`
+  arrives `undefined`, and every commit throws.
+- **Client library:** `kafkajs`, under the Nest strategy — `createKafkaConsumerStrategy({ brokers,
+  clientId, groupId })` builds `new ServerKafka({ …, consumer: { groupId }, postfixId: '',
+  autoCommit: false, deserializer, parser })`.
+- **Consumer Group:** `search-svc` — exactly the service name. `postfixId: ''` is what stops Nest from
+  creating `search-svc-server` with its own offsets, which would silently re-consume the topic.
 - **Offset management:** Manual commit (`autoCommit: false`). Offset committed only after PostgreSQL upsert transaction succeeds.
-- **Retry & DLQ:** 5 attempts with exponential backoff (1s, 2s, 4s, 8s, 16s). If still failing, message is written to `<topic>.dlq` and consumer offset is committed.
+- **Retry & DLQ:** 5 attempts with exponential backoff (1s, 2s, 4s, 8s, 16s). If still failing, message is written to `<topic>.dlq` and consumer offset is committed. If the DLQ write itself fails the handler throws `KafkaConsumerStalledError`, the run loop stops and the offset stays uncommitted — the group stalls rather than losing the record.
 
 ### Classification and DLQ policy (`srch-001`)
 
@@ -399,7 +418,10 @@ Two rules make this safe:
   will fail it forever; retrying only blocks the partition behind it.
 - **The offset follows the DLQ write.** If `producer.send` throws, `commitOffsets`
   is never reached, so the record is redelivered instead of lost. This is the
-  invariant the `kafka-event-consumer` unit tests pin.
+  invariant `ecom-messaging/test/consumer/kafka-event-handler.spec.ts` pins, and
+  `test/search-consumer.controller.spec.ts` re-asserts it through the real
+  `@EventPattern` wiring — the per-service consumer that used to hold these cases
+  was deleted in `srch-002` rather than kept beside the shared one.
 
 DLQ records carry `source: { topic, partition, offset }` so a replay can be
 scoped, plus `failedAt` and `error` (Zod issues, first three, clipped to 300
