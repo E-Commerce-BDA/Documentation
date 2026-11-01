@@ -18,11 +18,11 @@ PDP (1–stock) and on every cart line (1–stock, debounced by the caller).
 
 | State | Look |
 |---|---|
-| default | `--border` hairline, `--color-surface` fill, `--color-ink` digits |
-| hover / focus-visible | shared ring — `:focus-within` shows what `:hover` shows |
-| min reached | minus button disabled solid (never opacity), `aria-disabled` |
+| default | `--qty-border` over `--border` hairline, `--qty-bg` over white surface, `--qty-text` over `--color-ink` digits |
+| hover / focus-within | shared ring — `:focus-within` shows what `:hover` shows (`--qty-accent`) |
+| min reached | minus button disabled solid (`--qty-disabled-bg`/`--qty-disabled-text`), never opacity |
 | max reached | plus button disabled solid |
-| pending (caller-owned) | `data-pending="true"` dims the digits only; buttons stay disabled |
+| pending (caller-owned) | `data-pending="true"` dims the digits only (`--qty-pending-text`); freezing the buttons is the caller's `disabled` |
 
 ### EmptyState
 
@@ -31,14 +31,15 @@ matches), the cart (A4.7) and the account order history.
 
 | State | Look |
 |---|---|
-| default | `--text-muted` body, `--color-ink` title, 44 px glyph in `--color-accent-soft` |
+| default | `--empty-body` over `--text-muted`, `--empty-title` over `--color-ink`, 44 px glyph on `--empty-glyph-bg` over `--color-accent-50` |
 | with action | one `Button` variant `light` under the body |
 
 ## 2. Customizable fields (what admin can change)
 
 Neither block takes paintable admin knobs. Both read house tokens only
-(`--color-ink`, `--text-muted`, `--border`, `--color-surface`,
-`--color-accent-soft`, `--radius-control`). Reason: a quantity stepper that
+(`--color-ink`, `--text-muted`, `--border`, `--color-accent-50`,
+`--color-accent`, `--radius-button`) through their own `--qty-*` / `--empty-*`
+vars, whose fallbacks are those tokens. Reason: a quantity stepper that
 matches one section's palette and not another's is a bug, not a feature.
 
 ## 3. How to change (scopes — where a value lives)
@@ -46,7 +47,7 @@ matches one section's palette and not another's is a bug, not a feature.
 | Value | Home | Override |
 |---|---|---|
 | clamp (`min`, `max`, integer) | `lib/commerce/quantity.ts` → `clampQty` | flat props on the block |
-| disabled faces | `data-*` on both buttons, never a class toggle | — |
+| disabled faces | `data-disabled` / the buttons' `disabled` attribute, never a class toggle | — |
 | icon pair (minus / plus) | `Icon` names `minus` / `plus` | — |
 | empty-state copy | the route that renders it | `title` / `body` props |
 
