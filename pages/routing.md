@@ -3,7 +3,7 @@
 > Scope: every storefront route, the shared page-header contract, query
 > rules, PDP variant URLs, and canonical/SEO discipline. Single authority —
 > page docs and implementations reference this file, never re-decide it.
-> Status: Active | Version 1.1 | Date: 2026-11-01
+> Status: Active | Version 1.2 | Date: 2026-11-02
 > Parent: `0.Project-Overview.md` §14 (Docs Index) · `5.Features.md` (acceptance)
 
 ---
@@ -20,8 +20,15 @@
 | `/checkout` | Checkout | auth-required; title only |
 | `/checkout/confirmation/[orderId]` | Order confirmation | auth-required; bookmarkable — order number is the identity (A5.8) |
 | `/account/*` | Account (orders/addresses/wishlist) | auth-required; sub-routes, bookmarkable |
-| `/blog`, `/blog/category/[slug]`, `/blog/[slug]` | Blog surfaces | article gets breadcrumb |
-| `/signin`, `/signup` | Auth (`(auth)` group) | NOT `/login`; conversion chrome (minimal nav, no footer noise) |
+| `/blog`, `/blog/[slug]` | Blog surfaces (shipped sf-063, CMS-fed) | index is title-only; article gets breadcrumb + `<h1>` from the post |
+| `/blog/category/[slug]` | Blog category (spec — not yet built) | `listBlogs({category})` exists client-side; a route is deferred until a category exists |
+| `/about`, `/privacy`, `/terms` | Company/legal pages (shipped sf-063, CMS-fed) | each renders one cms-svc page document's blocks; no copy in the route |
+| `/signin`, `/signup`, `/forgot` | Auth (`(auth)` group) | NOT `/login`; conversion chrome (minimal nav, footer suppressed) |
+
+The `/blog`, `/about`, `/privacy`, `/terms` routes render CMS documents
+(`lib/cms/client.ts` → blogs/pages reads). A missing/unpublished document is
+`notFound()`; a long policy renders inside the prose *measure* (`max-width` on
+the text block), never a capped page (§2, design-system §4 / decision §10.2).
 
 Auth rule (from Features A11): unauthenticated `/account` or `/checkout`
 → `/signin?next=<original>` (resume the interrupted task).
@@ -79,5 +86,11 @@ variant keys (§4).
 
 - Page specs: `pages/home.md` (more per §6 of the docs plan)
 - Acceptance: `5.Features.md` A2/A3/A9/A11 · `9.Testing.md` (URL SLOs)
-- Implementation: `PageHeader` shell (to build), `useVariantFromURL` sync
-  (to build with PDP), `middleware.ts` return-path (to build with auth)
+- Implementation: `PageHeader` + `Breadcrumbs` shell (`shell-cart.md` §3/§5),
+  blog routes `app/(shop)/blog/{page,[slug]/page}.tsx` +
+  `lib/blog/present.ts` (sf-063), legal routes
+  `app/(shop)/{about,privacy,terms}/page.tsx` via
+  `_components/cmsPageRoute.tsx` → `components/pages/{CmsPage,PageBlocks}.tsx`
+  + `lib/pages/richText.ts` sanitizer (sf-063), return-path/mint logic in
+  `proxy.ts` (shipped sf-051)
+- `useVariantFromURL` query sync: to build with PDP depth (sf-055)

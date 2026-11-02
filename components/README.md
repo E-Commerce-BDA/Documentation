@@ -1,7 +1,7 @@
 # Components — Index & Conventions
 
 > Scope: every `components/*.md` rule doc (one per UI component).
-> Status: Active | Version 1.0 | Date: 2026-09-18
+> Status: Active | Version 1.1 | Date: 2026-11-02
 > Parent: `0.Project-Overview.md` §14 (Docs Index)
 
 ---
@@ -20,7 +20,7 @@
 | Input / Textarea / Select | `input.md` *(to create)* | ⬜ |
 | Checkbox / Radio / Toggle / Slider | `form-controls.md` *(to create, grouped)* | ⬜ |
 | Badge / Card / Dialog / IconButton | `feedback.md` *(to create, grouped)* | ⬜ |
-| Tabs / Skeleton / Pagination / Breadcrumbs / Accordion | `navigation.md` *(to create, grouped)* | ⬜ |
+| Tabs / Skeleton / Pagination / Breadcrumbs / Accordion | `navigation.md` *(to create, grouped)* | ⬜ (Breadcrumbs meanwhile shipped as a shell block — `shell-cart.md` §3) |
 | QuantityStepper / EmptyState | `commerce.md` §1–§2 | ✅ done |
 | Rating / Price / Table | `commerce.md` *(same doc, later sections)* | ⬜ |
 | SearchAutocomplete / CheckoutSteps | `commerce.md` *(to append, grouped)* | ⬜ |
@@ -28,7 +28,9 @@
 | Section blocks: Hero (+ carousel island) | `sections.md` §1.1–§1.2 | ✅ done (v2 — CMS slides, multi-slide island) |
 | ProductCollection / CategoryShowcase / BrandStrip / Testimonial / BlogTeaser / SectionRenderer | `sections.md` §1.3–§1.8, §2 | ✅ done (sf-060; grouped, one doc per §3 rule 4) |
 | BannerSection | `sections.md` §0 (refused in the resolver) | ⬜ sf-061 |
-| Shell purpose + mount rule + search overlays + cart blocks | `shell-cart.md` | ✅ done (§4 live: PageHeader, CartLineItem, MiniCartDrawer, CartProvider) |
+| Shell purpose + mount rule + search overlays + cart blocks | `shell-cart.md` | ✅ done (§4 live: PageHeader, CartLineItem, MiniCartDrawer, CartProvider; §5 live: Footer + FooterMount — sf-062) |
+| Footer (+ FooterMount) | `shell-cart.md` §5 | ✅ done (sf-062 — CMS document, minimal-face fallback, shared gutter) |
+| BlogCard / PostBlocks / PageBlocks / CmsPage | `sections.md` §1.7 + `shell-cart.md` §3 + route tests (`test/components/{post,page}-blocks.test.tsx`, `test/app/(shop)/{blog,legal}.test.tsx`) | ✅ done (sf-063 — grouped, no standalone doc yet per §3 rule 4) |
 
 Small related components share one grouped doc (see §3 rule 4); Button,
 Icons, and Tooltip earned standalone docs as system pioneers (first model,

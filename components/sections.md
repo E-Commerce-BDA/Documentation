@@ -3,11 +3,12 @@
 > Scope: `frontend/storefront/components/sections/*` (blocks + registry +
 > carousel island), `lib/sections/*` (view models, resolver, marquee/present
 > helpers), and the `CMS home sections` block in `app/globals.css`.
-> Status: Active | Version 2.0 | Date: 2026-11-02
+> Status: Active | Version 2.1 | Date: 2026-11-02
 > Parent: `components/README.md` §1 · `pages/home.md` §3 (section spec) ·
 > `design-system/storefront.md` §4/§8 · `pages/routing.md` §2
 > Implements: sf-051 (single hero) and **sf-060** (CMS-composed home: six
-> blocks, the resolver, the registry, the degraded faces).
+> blocks, the resolver, the registry, the degraded faces). §1.7's `BlogCard` is
+> shared with the sf-063 blog routes; the shell footer is `shell-cart.md` §5.
 
 ---
 
@@ -151,6 +152,10 @@ Cards only — the post body belongs to `/blog/[slug]` (sf-063). Date, cover,
 title, excerpt, and a real link; an excerpt the CMS did not write is not invented
 here, and a coverless post is a text card, not a grey box.
 
+The card itself is `components/sections/BlogCard.tsx` — the home teaser and the
+`/blog` index (sf-063) render the same painter from the same
+`lib/blog/present.ts` model, so the two surfaces cannot drift.
+
 ### 1.8 SectionRenderer
 
 `models.map` + a `switch` on `model.type` (a table of components would need a
@@ -239,15 +244,19 @@ contracts first, because a knob the contract cannot express cannot be audited.
   `lib/sections/resolveSections.ts` · `test/lib/sections/resolveSections.test.ts`
 - Helpers: `lib/sections/hero.ts` · `lib/sections/marquee.ts` ·
   `lib/sections/present.ts` (+ their `test/lib/sections/*` units)
-- Blocks: `components/sections/{HeroSection,HeroCarousel,toHeroFields,ProductCollectionSection,CategoryShowcaseSection,BrandStripSection,TestimonialSection,BlogTeaserSection,SectionRenderer,index}.ts(x)`
+- Blocks: `components/sections/{HeroSection,HeroCarousel,toHeroFields,ProductCollectionSection,CategoryShowcaseSection,BrandStripSection,TestimonialSection,BlogTeaserSection,BlogCard,SectionRenderer,index}.ts(x)`
 - Tests: `test/components/{hero,hero-carousel,product-collection,showcase-journal,brand-strip,testimonial,section-renderer}.test.tsx`,
   `test/components/{hero,sections}-style.test.ts`, `test/app/(shop)/home.test.tsx`
 - Paint: `app/globals.css` — the `CMS home sections` block (`.sf-section`,
   `.sf-hero*`, `.sf-slideshow*`, `.sf-collection`, `.sf-showcase*`,
   `.sf-strip*`, `.sf-testimonials*`, `.sf-quote*`, `.sf-stars*`, `.sf-blog*`,
   `.sf-degraded*`) + `@keyframes sf-marquee` / `sf-slide-in`
-- Data: `lib/cms/client.ts` (`getSections`), `lib/catalog/client.ts`
-  (`listProducts` with `ids`, `listBrands`), `lib/cms/tags.ts`
-  (`cms:sections:{pageKey}`)
-- Deferred: `banner` (sf-061), footer shell + blog/legal routes (sf-062/sf-063),
-  admin panel UI (adm-001 — wiring it is an API-only change by design)
+- Data: `lib/cms/client.ts` (`getSections`, `listBlogs` — the teaser's post
+  source), `lib/catalog/client.ts` (`listProducts` with `ids`, `listBrands`),
+  `lib/cms/tags.ts` (`cms:sections:{pageKey}`, `cms:blogs`)
+- Shared with sf-063: `components/sections/BlogCard.tsx` +
+  `lib/blog/present.ts` (the `/blog` index and home teaser paint one card) —
+  routes documented in `pages/routing.md` §1, renderer in `components/blog/`
+- Deferred: `banner` (sf-061), admin panel UI (adm-001 — wiring it is an
+  API-only change by design). Shipped alongside this wave: footer shell
+  (`shell-cart.md` §5, sf-062), blog + legal routes (sf-063)

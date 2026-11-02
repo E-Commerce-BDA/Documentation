@@ -27,8 +27,8 @@ Featured products  ← carousel/grid of 4-8 products (CMS picker)
 Category showcase  ← 3-6 category cards (image + name → /products?category=)
 Brand strip        ← logo row (optional)
 Blog teaser        ← 3 latest posts (optional)
-Testimonials       ← [optional, future]
-Footer
+Testimonials       ← (optional; shipped sf-060 — grid or marquee)
+Footer             ← global shell (sf-062, CMS-fed — `shell-cart.md` §5)
 ```
 
 - Sections render in `cms_sections.sort_order` order. Admin reorders via drag-drop (see `6.Admin-Panel.md` §7.2). Empty state: if a section has no content (e.g. no featured products selected), it is skipped, not rendered as an empty block.
