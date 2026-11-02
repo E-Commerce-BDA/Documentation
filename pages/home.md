@@ -1,7 +1,7 @@
 # Home — `pages/home.md`
 
 > Storefront Homepage Plan
-> Status: Draft | Last Updated: 2026-08-21
+> Status: Active (hero + all shipped sections) | Last Updated: 2026-11-02
 > Parent: `docs/0.Project-Overview.md` | `docs/5.Features.md` §A1 | `docs/6.Admin-Panel.md` §3.7/§4/§5/§6
 > Route: `frontend/storefront/app/(shop)/page.tsx` | CMS `pageKey=homepage`
 > Routing authority: `pages/routing.md` (route map, headers, query/SEO rules)
@@ -32,6 +32,8 @@ Footer
 ```
 
 - Sections render in `cms_sections.sort_order` order. Admin reorders via drag-drop (see `6.Admin-Panel.md` §7.2). Empty state: if a section has no content (e.g. no featured products selected), it is skipped, not rendered as an empty block.
+- **Shipped default order** (what the demo seed writes into `sort_order`, sf-064): hero → New products (`featured_products`, `source: "newest"`) → Shop by categories → brand strip (marquee) → testimonials → Most popular (`featured_products`, `source: "manual"` + curated `productIds`) → blog teaser → footer (global shell, not a section row). The order is data, not code — the storefront never re-sorts.
+- A section whose own data service is down is skipped on its own (`lib/sections/resolveSections.ts`); if the CMS itself is unreachable the page still returns 200 with a link to `/products` — no scaffold content (`components/sections.md` §3).
 - Page is a server component. It fetches `GET /api/v1/cms/sections?pageKey=homepage` (cached via Redis `cms:section:{key}`, invalidated by `cms.updated`) and `GET /api/v1/cms/settings/global` for theme defaults. No client fetch on first paint.
 
 ---
@@ -118,24 +120,27 @@ effective value = slide field ?? section settings ?? global theme ?? builtin def
 ### 3.6 Storefront Component
 
 ```
-components/sections/HeroSection.tsx
-  props: { slides: Slide[] }
-  - 1 slide: <section> with grid, no state, no JS
-  - >1 slide: client component (lightweight) with useState for activeIndex,
-    dots + arrow buttons, no interval, no autoplay
+components/sections/SectionRenderer.tsx   ← type-keyed dispatch, no page JSX per section
+components/sections/HeroSection.tsx       ← one slide, flat props, zero state
+components/sections/HeroCarousel.tsx      ← >1 slide: client island, owns only the index
+components/sections/toHeroFields.ts       ← CMS slide → painter props (shared by both)
+lib/sections/resolveSections.ts           ← heroModel(): slides, blank-headline filter, CTA cap
 ```
 
-> **v1 (sf-051) ships the single-slide face only**, as flat props —
-> `{ eyebrow?, title, body?, ctas?, image?, align? }` with `DEFAULT_HERO` in
-> `lib/sections/hero.ts` (`components/sections.md` §1–§2). The `slides` array
-> above is the CMS shape and lands with **sf-060**, after the contracts repin in
-> sf-053 (`@ecom/contracts` 1.7.0 ships no Section schemas).
+> **Shipped (sf-060)**: `HeroSection` keeps the flat-prop painter vocabulary
+> (`{ eyebrow?, title, body?, ctas?, image?, align?, height? }`) and never sees a
+> `slides` array — `resolveSections` turns the CMS slide list into
+> `HeroSlideModel[]`, and the registry mounts `HeroCarousel` **instead of** the
+> painter when a hero has more than one slide. `DEFAULT_HERO` is deleted: home
+> copy exists only in cms-svc, so an empty CMS is an empty page, not a scaffold.
+> `split`/`flip` (§3.4) are spec-only — contracts 1.12.0 does not carry them, so
+> nothing reads them and the shipped proportion is the fixed two-column grid.
 
-- The text panel: eyebrow (small caps, 12px, opacity 0.7), headline (`<h1>`, 32px desktop / 24px mobile, `textColor`), subcopy (16px, `textColor` at 0.8), CTA row — `0-3` buttons in `flex flex-wrap gap-3`; each button inline style from `ctas[i].bg/textColor/borderColor/borderWidth/borderRadius` via `lib/cms/resolve.ts`; `ctas: []` renders no CTA row.
-- The image panel: relative wrapper with `ratio`; background div with `imageBgColor`; `<img>` with `object-cover`, `width`/`height` from CMS, `loading="eager"` for the first slide (LCP), `loading="lazy"` for other slides.
-- Split is applied via inline `gridTemplateColumns` so it is per slide and does not require CSS classes per variant.
-- Accessibility: section has `aria-label="Hero"`, dots have `aria-label="Go to slide N"`, arrows have `aria-label="Previous/Next slide"`, image has `alt` from `imageAlt`.
-- Performance: no JS when 1 slide; when >1 slide, JS is <2 KB (state + handlers). No carousel library.
+- The text panel: eyebrow (small caps, 12px, `--text-muted`), headline (`<h1>`, `textColor`), subcopy (16px), CTA row — `0-3` `Button`s with a real `href`; each button's inline paint comes from `ctas[i].bg/textColor/borderColor/borderWidth/borderRadius`; a CTA with blank text or href is dropped by the resolver before the cap, and `ctas: []` renders no CTA row.
+- The image panel: wrapper with `--hero-ratio` (`aspect-ratio`, fallback `4 / 3`); `<img>` `loading="eager"` for slide 1 (LCP), `"lazy"` for the rest; no image → single-column face with no reserved media box.
+- Height is a section knob: `height: "viewport"` → `min-height: min(88vh, 820px)` (capped so a short slide never leaves a wall of colour).
+- Accessibility: section has `aria-label="Hero"`; exactly one slide is displayed, so exactly one `<h1>` is in the tree (inactive slides carry `hidden`); dots are `role="tablist"`/`role="tab"` with `aria-label="Slide N of M"`. No arrows: dots are enough for a hero, and a second control vocabulary would need a second focus trap.
+- Performance: no JS when 1 slide; the island is one `useState` + one interval, no carousel library. Auto-advance (`6000ms`) stops on hover, on focus, when the tab is hidden, and is disabled entirely by `prefers-reduced-motion` — the dots remain, because navigation is not motion.
 
 ### 3.7 Admin Editor
 
@@ -172,24 +177,25 @@ Route: `frontend/admin/app/cms/sections` — hero type selected.
 - Loading: server component streams; hero renders on first paint (no skeleton needed — single image is the LCP).
 - Empty: if `slides` is empty or the homepage has no hero section, the hero is skipped (no placeholder).
 - Error: if an image fails to load, `alt` text is shown in the image panel's backing div; layout does not collapse.
-- Single slide: static, no dots/arrows, no JS.
-- Multiple slides: manual navigation only; active dot is filled (`bgColor` = `textColor`), inactive dots are `textColor` at 0.3; arrows are simple chevrons in `textColor` on transparent background with a subtle hover background.
+- Single slide: static, no dots, no JS.
+- Multiple slides: the `HeroCarousel` island. Dots are the only control (filled = active), and auto-advance runs every 6 s unless the shopper is reading — hover, keyboard focus, a hidden tab, or `prefers-reduced-motion` stop the timer while the dots keep working.
 
 ---
 
 ## 4. Other Homepage Sections (Summary)
 
-These sections follow the same CMS pattern as the hero (each is a `cms_sections` document with `type` and `content` + `settings` + `sort_order`). They are not detailed here beyond inventory; each will get its own subsection in future page plans if customization is needed. For now they use the generic section renderer and the global/section override model (`6.Admin-Panel.md` §5).
+These sections follow the same CMS pattern as the hero (each is a `cms_sections` document with `type` and `content` + `settings` + `sort_order`). The storefront side is specified in `components/sections.md` §1–§2; this table is the inventory of what the renderer honours today.
 
-| Section type | Content fields | Notes |
+| Section type | Content fields | Shipped storefront behaviour |
 |---|---|---|
-| `banner` | `image, title, ctas[0..3] (each {text, link, bg, textColor, border*}, max 3 via Zod), bgColor` | Full-width strip, centered text |
-| `featured_products` | `productIds[]` (picker, ordered), `title` | Renders product cards (uses `theme.borderRadius.card`, `photoSettings.ratio`) |
-| `category_showcase` | `categoryIds[]`, `title` | Category cards → `/products?category=` |
-| `brand_strip` | `brandIds[]` | Logo row, grayscale logos |
-| `blog_teaser` | `postIds[]` or auto latest 3 | Post cards |
+| `banner` | `image, title, ctas[0..3], bgColor` | ⬜ not implemented — the resolver refuses the type (sf-061), so a banner row paints nothing |
+| `featured_products` | `title`, `source: "manual" \| "newest"`, `productIds[]` (ordered picker), `layout: "grid" \| "carousel"` | Product cards via the listing's `ProductGridIsland` (one quick-add path). Manual = `GET /catalog/products?ids=…` pinned by `array_position`; newest = `sort=created_desc`. `maxItems` (default 8) caps the row. Card knobs (`ratio`, `blendMode`) merge **under** the product's own `cardSettings` |
+| `category_showcase` | `title`, `categoryIds[]` | Tiles link to `/products?category=<slug>`. No ids → first `maxItems` (12) active categories. `showPhotos: false` is a real face (name-only tiles), not a missing image |
+| `brand_strip` | `title`, `items[{brandId, label?}]` (ordered, wins) or `brandIds[]` (logos only) | Logo cells → `/products?brand=<slug>`, wordmark when a brand has no logo. `label` is the admin's **per-brand** name beside that logo (`data-named`). `motion: "marquee"` = duplicated CSS track with `speed` px/s, `direction`, `pauseOnHover`; static under reduced motion (loop copy hidden) |
+| `testimonial` | `title`, `items[{quote, name, role?, avatar?, rating 1-5?, verified?, date?}]` | Quotes exactly as entered — no invented average, no star the CMS did not say; `layout: "grid" \| "marquee"` reuses the strip's mechanism |
+| `blog_teaser` | `title`, `postIds[]` or auto-latest, `count` | Cards (`date`, cover, title, excerpt) linking to `/blog/<slug>`; no cover → text card. The post body is the blog route, not this block |
 
-All are optional and ordered by `sort_order`. The generic section renderer applies `settings.gutter`, `settings.maxItems`, and the Product > Section > Global override for `ratio`/`blendMode` where relevant.
+All are optional and ordered by `sort_order`. The generic section renderer applies `settings.gutter`, `settings.maxItems`, and the Product > Section > Global override for `ratio`/`blendMode` where relevant, and skips a section that is inactive, empty, or whose own data service is down.
 
 ---
 

@@ -397,8 +397,77 @@ invented).
 | `regions.wishlist` | To show or hide the wishlist icon in the navbar (disabled preview) | boolean | true | entry gate (Navbar) |
 | `count / badgeCap` | To show a capped count badge on the wishlist icon | number / 1–99 | 0 (hidden) / 9 | `.sf-navcart__badge` |
 
+## CMS sections (per-row `settings`, sf-060 — live)
+
+These knobs live on the `cms_sections` document (`pageKey=homepage`), not in the
+global theme, so the path is `sections[<key>].settings.<knob>`. Absent = inherit
+the token (the resolver never writes `undefined` into a view model, and the
+stylesheets fall back through `var(--x, var(--token))`); `null` is rejected by
+contracts 1.12.0. Content columns are in `sections[<key>].content` and are
+listed in `pages/home.md` §4; `components/sections.md` §2 keeps the
+knob→var→default table authoritative.
+
+### Shared knobs (every section type accepts them)
+
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `sections[].isActive` | To take a section off the page without deleting it | boolean | true | resolver skip (no markup at all) |
+| `sections[].sortOrder` | To move the section in the page | int | 0 | resolver order (never re-sorted downstream) |
+| `sections[].settings.bgColor` | To change the section's own background wash | hex | inherit (transparent) | `--section-bg` → `.sf-section` |
+| `sections[].settings.maxItems` | To cap how many rows the section pulls | 1–24 | per type: products 8, category/brand/testimonial 12, blog 3 | slice (resolver) |
+| `sections[].settings.gutter` | To change the gap between cards or tiles | 0–48px | theme gap | `--grid-gap` (featured_products, category_showcase, blog_teaser) — **not read** by `brand_strip`/`testimonial`, whose track gap stays themed |
+| `sections[].settings.blendMode` | To change how card imagery blends into its box | `multiply` / `normal` | card default | `cardOverrides.imageBlendMode` (featured_products only) |
+
+### Hero (`heroSettingsSchema`)
+
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `settings.height` | To make the hero a full first screen or a content-sized band | `auto` / `viewport` | `auto` | `data-height` → `min-height: min(88vh, 820px)` |
+| `settings.ratio` / `settings.customRatio` | To change the image box proportion of every slide | `1:1`/`4:3`/`3:4`/`16:9`/`custom` + 0.5–2.5 | `4 / 3` | `--hero-ratio` (slide `ratio` outranks the section) |
+| `content.slides[].bgColor` / `.textColor` | To theme one slide, not the section | hex | section value | `--hero-bg` / `--hero-text` |
+| `content.slides[].ctas[0..2]` | To set the buttons, in order, with per-CTA paint | {text, link, bg, textColor, border*} | `[]` (no CTA row) | `Button` flat props; variant by index primary/light/ghost-ink |
+
+### Featured products (`featuredProductsSettingsSchema`)
+
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `content.source` | To choose curated picks or the newest arrivals | `manual` / `newest` | `manual` when ids exist | `?ids=` (order pinned) vs `sort=created_desc` |
+| `content.layout` | To render the row as a grid or a scrollable rail | `grid` / `carousel` | `grid` | `data-layout` → `.sf-collection[data-layout="carousel"] .sf-grid` (native snap row) |
+| `settings.ratio` | To set the card thumbnail ratio for this row | enum (no `custom`) | theme | `cardOverrides.mediaRatio`, merged **under** the product's `cardSettings` |
+| `settings.showPhotos` | Accepted by the schema, ignored by the renderer (a product card always shows its photo) | boolean | — | none (documented dead knob) |
+
+### Brand strip (`brandStripSettingsSchema`)
+
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `content.items[].brandId` | To pick and order the logos | uuid, ordered; wins over `brandIds` | — | resolver order |
+| `content.items[].label` | To show an admin-typed name beside that one logo | ≤60 chars | absent (logo alone) | `.sf-strip__label` + `data-named` |
+| `settings.motion` | To keep the row still or run it as a marquee | `static` / `marquee` | `static` | `data-motion` → duplicated track + `sf-marquee` |
+| `settings.speed` | To change the marquee velocity | 20–200 px/s | 60 | `--marquee-duration` (px ÷ px/s, clamped 4–240 s) |
+| `settings.direction` | To run the track left or right | `left` / `right` | `left` | `animation-direction: reverse` |
+| `settings.pauseOnHover` | To stop the track while the shopper reads it | boolean | true | `data-pause` + `:hover`/`:focus-within` |
+
+### Testimonials (`testimonialSettingsSchema`)
+
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `settings.layout` | To show the quotes as a grid or the strip's marquee mechanism | `grid` / `marquee` | `grid` | `data-layout` → `.sf-testimonials__track` |
+| `settings.speed` / `pauseOnHover` | Same vocabulary as the strip, quote cell metrics (340+20) | 20–200 px/s / boolean | 60 / true | `--marquee-duration`, `data-pause` |
+| `content.items[].rating` | To show the stars a reviewer gave | 1–5 | absent (no star row) | `.sf-stars__star[data-on]` |
+| `content.items[].verified` | To mark a review as verified | boolean | absent | `.sf-pill` "Verified" |
+| `content.items[].date` | To date the quote | ISO date | absent | `<time>` rendered as "Nov 2026" |
+
+### Category showcase / blog teaser
+
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `content.categoryIds` / `content.postIds` | To curate the tiles or posts, in order | uuid[] | empty = first active categories / latest posts | resolver order + slice |
+| `settings.showPhotos` (category only) | To turn the tile artwork off | boolean | true | `data-photos="false"` → name-only tiles keep their box |
+| `content.count` (blog only) | To set how many cards show | 1–12 | 3 | slice |
+
 ## Stubs (filled by their slices — one line each, no placeholders)
 
 - **Product card** (variants row/overlay/minimal land with card-type work; palette `cardType` union extends).
-- **CMS sections** (hero/banner/featured/category/brand/blog land with sections slice).
+- **CMS `banner` section** (row exists in contracts; the resolver refuses the type until sf-061).
+- **Footer shell** (`footer.*`, cms-svc module shipped — storefront mount lands with sf-062).
 - **Toast severity faces** (extend via `data-*` when a second producer arrives; no stacking until a queue design exists).

@@ -25,8 +25,9 @@
 | Rating / Price / Table | `commerce.md` *(same doc, later sections)* | ⬜ |
 | SearchAutocomplete / CheckoutSteps | `commerce.md` *(to append, grouped)* | ⬜ |
 | ProductCard / Gallery / VariantSelector / ProductGrid | `product.md` | ✅ done (§1–§10 card, §14 gallery + variant selector, §15 grid + `fromCatalog`) |
-| HeroSection | `sections.md` §1 | ✅ done (single static slide; CMS slides with sf-060) |
-| BannerSection / FeaturedProducts / CategoryShowcase / BrandStrip / BlogTeaser | `sections.md` *(to append, grouped)* | ⬜ |
+| Section blocks: Hero (+ carousel island) | `sections.md` §1.1–§1.2 | ✅ done (v2 — CMS slides, multi-slide island) |
+| ProductCollection / CategoryShowcase / BrandStrip / Testimonial / BlogTeaser / SectionRenderer | `sections.md` §1.3–§1.8, §2 | ✅ done (sf-060; grouped, one doc per §3 rule 4) |
+| BannerSection | `sections.md` §0 (refused in the resolver) | ⬜ sf-061 |
 | Shell purpose + mount rule + search overlays + cart blocks | `shell-cart.md` | ✅ done (§4 live: PageHeader, CartLineItem, MiniCartDrawer, CartProvider) |
 
 Small related components share one grouped doc (see §3 rule 4); Button,
