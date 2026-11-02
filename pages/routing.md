@@ -29,7 +29,8 @@ Auth rule (from Features A11): unauthenticated `/account` or `/checkout`
 ## 2. PageHeader contract (one shell, all pages)
 
 `PageHeader({ eyebrow?, title, breadcrumb?, actions? })` on the shared
-1280px / 28px-24px grid. Slots filled per page type — never copy-pasted:
+full-bleed shell (`padding-inline var(--sf-page-pad)`,
+`clamp(16px, 4vw, 50px)`, no page `max-width`). Slots filled per page type — never copy-pasted:
 
 | Page type | H1 top-left | Breadcrumb | Rationale |
 |---|---|---|---|

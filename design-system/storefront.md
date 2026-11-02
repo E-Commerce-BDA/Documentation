@@ -14,7 +14,7 @@
 | Principle | Statement | Rationale |
 |---|---|---|
 | **Product first** | The product (image, price, name) is primary; UI is the frame. | Customer comes to buy, not to admire chrome. Every token serves product legibility. |
-| **Light & airy** | White surfaces, ocean accents, generous whitespace, `480px` hero deck on `1280px` grid. | Bright storefront converts better for apparel; dark/heavy chrome hides product. |
+| **Light & airy** | White surfaces, ocean accents, generous whitespace, `480px` hero deck on the full-bleed shell (≤50px gutter). | Bright storefront converts better for apparel; dark/heavy chrome hides product. |
 | **Gradient canvas, solid actions** | Hero background is a soft ocean gradient; buttons are **solid fills** (no gradients). | The canvas sets mood; the CTA stays the highest-contrast, most predictable element on the page. |
 | **Wave interaction** | On hover a wave rises inside the button and swaps it to the secondary color. | One signature affordance, flat 2D, no shadows-on-color — feels alive without animation libraries. |
 | **One token source** | Single CMS `cms_settings.theme` → `:root` CSS vars → Tailwind `@theme inline` → per-slide `style` via `lib/cms/resolve.ts`. | No ad-hoc hex in `components/`; `P>S>G` inheritance is deterministic. |
@@ -119,7 +119,9 @@ All colors are emitted as `:root` vars (`--color-*`, ocean ramp) and consumed vi
 
 ## 4. Spacing System
 
-Base `4px`: `4 · 8 · 12 · 16 · 20 · 24 · 32 · 56 · 72`. Hero `padding 72px 24px`, `gap 56px`, `min-height 540px`; sections `max-width 1280px`, `padding 28px 24px`; card `bd` `12px`.
+Base `4px`: `4 · 8 · 12 · 16 · 20 · 24 · 32 · 56 · 72`. Hero `padding 72px 24px`, `gap 56px`, `min-height 540px`; card `bd` `12px`.
+
+**Page shell (sf-060):** pages are **full-bleed** — no `max-width` on the page or section container. The horizontal gutter is a single token `--sf-page-pad: clamp(16px, 4vw, 50px)` applied as `padding-inline`; the total edge gap on desktop is therefore **≤50px** (padding only, `margin-inline: 0`), and a narrow viewport keeps a sane `16px` floor. Vertical rhythm (`padding-block`) is unchanged. A `max-width` is permitted **only on a text element** inside a component (hero copy, legal prose) to hold a readable measure — never on the page/section wrapper (§8 is the shell rule this follows).
 
 ---
 
@@ -201,7 +203,7 @@ Live reference: canvas **Frames 10–12** in `index.html` (one live carousel per
 
 ## 8. Layout Patterns
 
-Shell: `Announcement 36px` → `Navbar 64px sticky` → `Hero min-height 540px (pad 72/24, gap 56)` → `Sections 1280px / 28px 24px` → `Footer`. Breakpoints: **900px** (hero stacks, peek hidden, arrows→row), **700px** (palette grid 1-col), **640px** (headline 28px, CTA flex-1). Grids `4→2→1`.
+Shell: `Announcement 36px` → `Navbar 64px sticky` → `Hero min-height 540px (pad 72/24, gap 56)` → `Sections (full-bleed, padding-inline var(--sf-page-pad) = clamp(16px, 4vw, 50px))` → `Footer`. The page/section container carries no `max-width`; the Navbar and Footer inner containers share the same `--sf-page-pad` gutter so shell and pages align on one edge. Breakpoints: **900px** (hero stacks, peek hidden, arrows→row), **700px** (palette grid 1-col), **640px** (headline 28px, CTA flex-1). Grids `4→2→1`.
 
 ---
 
