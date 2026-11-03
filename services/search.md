@@ -2,7 +2,7 @@
 
 > What this file is: the plain-language build checklist and operational guide for the unified search engine:
 > typeahead suggest, ranked search, event-driven index synchronization, and backfill pipelines.
-> Status: Active | Version 1.0 | Date: 2026-10-28
+> Status: Active | Version 1.1 | Date: 2026-11-03
 > Parent: `0.Project-Overview.md` §14 · `1.Architecture.md` §5/§6/§7/§9 · `3.Database-Schema.md` §3.7 · `4.API-Design.md` §3.9
 > Referenced by: `search-svc` (:4090), `catalog-svc` (:4010), `cms-svc` (:4050), `storefront`
 
@@ -56,6 +56,7 @@ Kafka event spine ────────────────────�
    A product or blog update takes milliseconds to appear in search after the event is processed. Eventual consistency is completely acceptable for search; it is not acceptable for checkout.
 3. **Idempotent upsert & stale-event guard:**
    Events may arrive out of order or be re-delivered. The indexer enforces idempotency on `(document_type, id)` and drops updates where the incoming `source_updated_at` is older than the stored row.
+   The composite primary key *is* the `ON CONFLICT (document_type, id)` arbiter — they cannot be two different constraints, because an upsert that satisfies the one the arbiter matched is then rejected by the other, and a deterministic constraint breach is exactly the failure a retry can never clear (`srch-004`, ADR 43).
 4. **Resilient degraded modes:**
    - PostgreSQL down: `GET /health/ready` returns `503 Service Unavailable`.
    - Redis down: `GET /health/ready` returns `200 OK` with `redis: "down"`. Typeahead continues via PostgreSQL.
@@ -73,7 +74,7 @@ Kafka event spine ────────────────────�
 CREATE SCHEMA IF NOT EXISTS search;
 
 CREATE TABLE IF NOT EXISTS search.search_documents (
-  id varchar(64) PRIMARY KEY,
+  id varchar(64) NOT NULL,
   document_type varchar(20) NOT NULL
     CHECK (document_type IN ('product', 'category', 'blog')),
   title varchar(255) NOT NULL,
@@ -90,11 +91,11 @@ CREATE TABLE IF NOT EXISTS search.search_documents (
     to_tsvector('english', title || ' ' || content)
   ) STORED,
   source_updated_at timestamptz NOT NULL,
-  synced_at timestamptz NOT NULL DEFAULT now()
+  synced_at timestamptz NOT NULL DEFAULT now(),
+  -- The identity is the pair, not the id: two entity types may share one source id.
+  -- `db/004` migrates an existing index to this shape; `001` states it for a fresh one.
+  CONSTRAINT search_documents_pkey PRIMARY KEY (document_type, id)
 );
-
-CREATE UNIQUE INDEX IF NOT EXISTS search_documents_type_id_key
-  ON search.search_documents (document_type, id);
 
 CREATE INDEX IF NOT EXISTS idx_search_documents_vector
   ON search.search_documents USING GIN (search_vector);
@@ -156,8 +157,9 @@ CREATE INDEX IF NOT EXISTS idx_processed_events_processed_at
 - **One transaction.** `IndexerRepository.withTransaction` opens
   `BEGIN`, inserts the id (`ON CONFLICT DO NOTHING RETURNING event_id`) and only
   then upserts. A crash between the two leaves no id claimed. A failed upsert
-  (deadlock, constraint) rolls the id back too, so the consumer's retry ladder
-  can succeed.
+  (deadlock, connection loss) rolls the id back too, so the consumer's retry ladder
+  can succeed. A constraint breach rolls back as well, but is dead-lettered on the
+  first attempt — redelivering it would reach the same verdict.
 - **`rowCount > 0` is the whole contract.** No row means another delivery won
   the race; the outcome is `duplicate` and the document is not touched.
 - **Growth.** `processed_at` is indexed for the retention sweep
@@ -166,6 +168,44 @@ CREATE INDEX IF NOT EXISTS idx_processed_events_processed_at
 - **HTTP ingest does not claim ids.** `POST /search/internal/documents` has no
   envelope, so `ingestMany` still writes straight through and reports
   `accepted`/`skipped`/`rejected`.
+
+### 3.4 Identity migration (`db/004-search-documents-composite-pk.sql`)
+
+`001` originally declared `PRIMARY KEY (id)` **and** a unique index on
+`(document_type, id)`. The upsert's `ON CONFLICT` matched the index, so it inserted
+a row that the key then rejected: a cross-type id collision was a fatal `23505`
+that redelivery could never clear, and one such record stopped the whole index.
+`004` collapses the two into the one constraint the upsert already assumed:
+
+```sql
+ALTER TABLE search.search_documents DROP CONSTRAINT IF EXISTS search_documents_pkey;
+DROP INDEX IF EXISTS search.search_documents_type_id_key;
+ALTER TABLE search.search_documents
+  ADD CONSTRAINT search_documents_pkey PRIMARY KEY (document_type, id);
+```
+
+- **Idempotent and precondition-checked.** Applied through a `DO` block because a
+  missing constraint makes `DROP CONSTRAINT` fail, and re-running it is a no-op. It
+  cannot fail on duplicate pairs: `(document_type, id)` was already unique, so the
+  old `PRIMARY KEY (id)` was strictly the more restrictive of the two.
+- **The dropped index is not a lost lookup.** The PK index covers exactly
+  `(document_type, id)`; `test/schema.e2e-spec.ts` asserts both the constraint text
+  and the index's absence.
+- **Dev data is rebuilt, not hand-seeded.** The dev database gets `001`, `003` and
+  `004` and is populated by events plus `pnpm search:reindex`; the seed in `002`
+  belongs to the e2e database only. See `search-svc/README.md`.
+- **The snapshot is one page per type, on purpose.** The `reindex` endpoint prunes
+  by type: a type present in the payload is reconciled, a type absent from it is
+  left alone. So the script reads a page no dev source can overflow (catalog caps
+  `limit` at 100) and *refuses* to reconcile a type that hands back a `nextCursor`,
+  because pruning against a truncated list deletes live rows. It also asks for the
+  inactive categories, since the index is meant to keep them as `inactive` instead
+  of losing them. Measured in dev (`srch-004`): catalog's products cursor is not a
+  walk — `ORDER BY p.created_at DESC, p.id DESC` continued by `p.id > cursor`
+  repeated 78 of page 1's 100 rows — so archived products cannot be enumerated over
+  HTTP yet, and a reindex covers the active product listing plus every non-deleted
+  category and published blog. An archived product still gets its row from its next
+  `product.updated` event; fixing the cursor is a catalog-svc follow-up.
 
 ---
 
@@ -410,12 +450,20 @@ Every record is classified **before** any database work, by
 | Unknown type, not subscribed, or unmappable | `ignored` | committed + `warn` | — |
 | Applied (fresh insert/update) | `accepted`/`skipped` | committed | — |
 | Already-applied event id | `duplicate` | committed | — |
-| Infrastructure error | — | committed **after** the DLQ write | `reason: transient-exhausted`, after the 5-attempt ladder |
+| Infrastructure error | — | committed **after** the DLQ write | `reason: transient-exhausted`, after the bounded ladder |
+| Index write rejected by a constraint (SQLSTATE `23505`) | `dlq` | committed | `reason: index-constraint-violation`, on attempt **1** — no ladder walked |
 
-Two rules make this safe:
+Three rules make this safe:
 
-- **No retries for a malformed record.** A payload that fails a strict schema
-  will fail it forever; retrying only blocks the partition behind it.
+- **No retries for a failure that redelivery cannot repair.** A payload that fails a strict
+  schema will fail it forever, and so will a deterministic constraint breach — the row that owns
+  the key belongs to something else. `translateIndexError` (`src/events/index-errors.ts`) maps
+  SQLSTATE `23505` to `index-constraint-violation` so the record is parked on attempt 1 instead of
+  after the whole ladder.
+- **The ladder fits inside the broker session.** `retryBudgetMs: 20_000` truncates the default
+  1/2/4/8/16s ladder to 1/2/4/8s against the consumer's 45s `sessionTimeout`, because a member
+  still asleep when its session expires is evicted and the coordinator then refuses both the
+  dead letter and the commit that waits on it (`srch-004`, ADR 44).
 - **The offset follows the DLQ write.** If `producer.send` throws, `commitOffsets`
   is never reached, so the record is redelivered instead of lost. This is the
   invariant `ecom-messaging/test/consumer/kafka-event-handler.spec.ts` pins, and
