@@ -3,7 +3,7 @@
 > Scope: every storefront route, the shared page-header contract, query
 > rules, PDP variant URLs, and canonical/SEO discipline. Single authority —
 > page docs and implementations reference this file, never re-decide it.
-> Status: Active | Version 1.2 | Date: 2026-11-02
+> Status: Active | Version 1.3 | Date: 2026-11-17
 > Parent: `0.Project-Overview.md` §14 (Docs Index) · `5.Features.md` (acceptance)
 
 ---
@@ -41,7 +41,8 @@ full-bleed shell (`padding-inline var(--sf-page-pad)`,
 
 | Page type | H1 top-left | Breadcrumb | Rationale |
 |---|---|---|---|
-| Listing, account, cart, checkout, compare, blog index | ✅ | ❌ | top-level — `Home / Cart` trails are noise |
+| Bare listing, account, cart, checkout, compare, blog index | ✅ | ❌ | top-level — `Home / Cart` trails are noise |
+| Listing with `?category=slug` | ✅ | ✅ (`Home / Shoes / Running`) | a category filter is a descent into the tree, so the trail is the upward escape path and its links stay inside `/products?category=` |
 | PDP, blog article | ✅ (product/post name) | ✅ (`Home / Shoes / Running X`) | deep pages need an upward escape path |
 | Auth | configurable centered/split, no H1 (see `pages/auth-design.md`) | ❌ | conversion focus, minimal chrome |
 | Home | ❌ (hero is the header) | ❌ | |

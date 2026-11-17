@@ -59,6 +59,19 @@ Catalog's list endpoint accepts the following additional filters and sorts
 real review exists — no seed reviews are fabricated. Popularity defaults to 0 and
 is never seeded; it is set by an admin through the product API.
 
+### Keyset cursor and facets (cat-015)
+
+`nextCursor` is an opaque base64url payload, not a bare id: it carries the last
+row's sort key plus a SHA-256 fingerprint of the filters and sort that produced
+it. Every continuation is a composite keyset predicate on the *same* columns the
+`ORDER BY` uses (`(created_at, id)`, `(price, id)`, …), so a page cannot repeat or
+skip a row; a cursor from another filter set or sort is rejected with 400
+`CURSOR_INVALID`. Manual `ids` cursors carry the `array_position` index instead.
+
+`GET /api/v1/catalog/products/facets?categoryId=&brandId=` returns
+`{ tags, minPrice, maxPrice }` derived from active products — distinct tags and
+real price bounds, never a seeded facet list.
+
 Two consequences worth stating plainly:
 
 - **The producer half never runs during a consume.** An import does not publish
