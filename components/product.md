@@ -136,9 +136,20 @@ Both are **controlled** blocks in `components/commerce/` — the island owns
   hear why they cannot be picked. The selection key order is the URL key order
   (`pages/routing.md` §4).
 
-URL sync (`?color=&size=`), variant history pushes, and the compare tray are
-**sf-055**; v1 keeps the selection in island state and mirrors it into the URL
-on commit only.
+**Variant URLs (sf-055, landed):** `useVariantFromURL` reads `?color=&size=`
+(option names in `position` order, value slugs — never ids). A committed choice
+pushes a history entry; an invalid or unbuyable URL is repaired to the nearest
+in-stock variant with a quiet `role="status"` notice and a `router.replace`,
+never a 404. `lib/commerce/variantUrl.ts` owns both directions as pure rules.
+
+**Photo settings (sf-055):** `lib/commerce/photoSettings.ts` resolves
+`product.photoSettings > section > global theme` with documented clamps
+(`gutter 0–48`, `widthPercent 25–100`, custom ratio 0.5–2.5). `Gallery` receives
+the result as paint props only; it never re-decides precedence.
+
+**Compare (sf-055):** `ProductCard.onCompare` is a real toggle with a 4-item cap
+(`lib/commerce/compare.ts`). The tray is session-only (`CompareProvider`, no
+localStorage); `/compare?ids=a,b` is the shareable, bookmarkable artifact.
 
 ## 15. ProductGrid + the catalog mapper (landed with the listing slice)
 
