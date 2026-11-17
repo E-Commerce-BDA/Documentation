@@ -1,14 +1,16 @@
-# Section blocks — the CMS home vocabulary
+# Section blocks — the CMS home & PDP vocabulary
 
 > Scope: `frontend/storefront/components/sections/*` (blocks + registry +
 > carousel island), `lib/sections/*` (view models, resolver, marquee/present
 > helpers), and the `CMS home sections` block in `app/globals.css`.
-> Status: Active | Version 2.1 | Date: 2026-11-02
+> Status: Active | Version 2.2 | Date: 2026-11-08
 > Parent: `components/README.md` §1 · `pages/home.md` §3 (section spec) ·
 > `design-system/storefront.md` §4/§8 · `pages/routing.md` §2
 > Implements: sf-051 (single hero) and **sf-060** (CMS-composed home: six
 > blocks, the resolver, the registry, the degraded faces). §1.7's `BlogCard` is
 > shared with the sf-063 blog routes; the shell footer is `shell-cart.md` §5.
+> PDP sections (contracts `1.14.0`): seven `pdp_*` types, materialized from
+> `pdp-default` into `pdp-<product.id>`; the PDP reads exactly one page key.
 
 ---
 
@@ -17,6 +19,7 @@
 | Layer | File | Owns | Never does |
 |---|---|---|---|
 | Route | `app/(shop)/page.tsx` | fetch `getSections(homepage)`, pick a face, `revalidate = 300` | any copy, any order, any layout |
+| PDP route | `app/(shop)/products/[slug]/page.tsx` | fetch `getSections(pdp-<id>)`, fallback on `null`, `revalidate = 60` | any copy, any order, any layout |
 | Resolver | `lib/sections/resolveSections.ts` | fan-out to catalog/cms, skip rules, order, knob defaults | any JSX, any pixel |
 | Registry | `components/sections/SectionRenderer.tsx` | type → block dispatch, single- vs multi-slide hero | fetching, sorting, inventing defaults |
 | Block | `components/sections/*Section.tsx` | paint the view model exactly | fetching, deciding, state (the one exception is the hero island, §1.2) |
@@ -181,7 +184,9 @@ order, untouched. An empty model list renders nothing at all.
 `DEFAULT_HERO` is gone: there is no built-in home copy, so an empty CMS is an
 empty page (§3), not a scaffold.
 
-## 3. Degradation faces (the `/` route's three states)
+## 3. Degradation faces
+
+### 3.1 The `/` route's three states
 
 | Condition | Face |
 |---|---|
@@ -191,6 +196,17 @@ empty page (§3), not a scaffold.
 
 Both degraded faces are one section, no hero, no strip: honest absence, never a
 placeholder that looks like content.
+
+### 3.2 The PDP's three states
+
+| Condition | Face |
+|---|---|
+| `getSections` → `null` (cms-svc unreachable) | Outage fallback: catalog description/details + static trust + category related. No reviews, story, or FAQ — nothing is invented. |
+| sections answered, none render | Buy box + recently viewed only. No fallback: empty means the product has no sections; backfill owns the fix. |
+| sections resolved | `<SectionRenderer>` in CMS order. `#reviews` exists only on the first `pdp_reviews` section; the buy-box rating appears only with authored numeric ratings. |
+
+`pdp-default` is never read at runtime. It is the materialized blueprint that
+the admin clone endpoint copies into `pdp-<product.id>`.
 
 ## 4. How to change (scopes — where a value lives)
 

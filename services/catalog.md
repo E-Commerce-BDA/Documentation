@@ -40,6 +40,25 @@ order-svc   ──► order.created     ─┴─► catalog-svc consumer (group
 `production`, and `main.ts` re-checks the flag at boot so a production process
 configured with it fails before it opens a database connection (`cat-011`).
 
+## Listing query (1.15.0)
+
+Catalog's list endpoint accepts the following additional filters and sorts
+(see `4.API-Design.md` §1.4):
+
+- `?tags=linen,summer` — AND semantics: products that have every listed tag.
+- `?discounted=true` — only products with an active `product_discounts` row
+  inside its `starts_at`/`ends_at` window.
+- `?sort=rating_desc` — orders by the average of approved `catalog.reviews`,
+  unrated products last.
+- `?sort=popularity_desc` — orders by the admin-set `products.popularity` field.
+
+`rating` and `ratingCount` are returned on each list item for card display.
+`popularity` is not exposed to the storefront; it is an internal ranking field.
+
+**No fake data.** Rating sort is backed by `catalog.reviews` and is empty until a
+real review exists — no seed reviews are fabricated. Popularity defaults to 0 and
+is never seeded; it is set by an admin through the product API.
+
 Two consequences worth stating plainly:
 
 - **The producer half never runs during a consume.** An import does not publish
