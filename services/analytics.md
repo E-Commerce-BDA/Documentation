@@ -33,12 +33,27 @@ Indexes are declared in `src/db/indexes.ts` and applied at boot by
 `IndexesService`; the declarations are unit-tested and the live indexes have an
 e2e check that skips cleanly without Mongo.
 
-## HTTP (planned — anl-002)
+## HTTP (shipped — anl-002)
 
-`POST /api/v1/analytics/track` accepts `pageViewedPayloadSchema` and returns
-**202** after validation and an outbox write. It never leaks PII and is called
-by the storefront's Next route `/api/track`, which is the only component that
-talks to this service. The browser never sees a Kafka client.
+`POST /api/v1/analytics/track` accepts the `pageViewedPayloadSchema` fields.
+`timestamp` is optional on the wire — the server stamps it so a wrong client
+clock cannot skew funnels. The response is **202 `{ status: "accepted" }`**
+with `cache-control: no-store`.
+
+- Invalid body → **400** `VALIDATION_FAILED` with field names only. Rejected
+  values are never echoed, so a page URL containing a token cannot leak into a
+  response or a log.
+- Over the limit → **429** `RATE_LIMITED` with `Retry-After`. The limit is a
+  per-`sessionId` sliding window, 60 events / 60s by default, configurable with
+  `TRACK_RATE_LIMIT_MAX` and `TRACK_RATE_LIMIT_WINDOW_MS`.
+- The validated beacon becomes one `page.viewed` row in `analytics_outbox`,
+  written in a Mongo transaction keyed by `sessionId`. Nothing is published
+  synchronously; the relay drains after commit. `page_views` facts are written
+  by the anl-003 consumer, not here.
+
+The only caller is the storefront's Next route `/api/track` (sf-052). The
+browser never sees a Kafka client. Duplicate HTTP beacons are not deduped at
+ingest — at-least-once delivery and `processed_events` dedupe belong to anl-003.
 
 ## Kafka ownership
 
