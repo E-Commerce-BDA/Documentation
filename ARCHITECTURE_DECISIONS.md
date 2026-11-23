@@ -60,11 +60,11 @@
 **Rules out:** merges on a single test tier.
 
 ## ADR-comments — Why at the site only when code cannot show it
-**Choice:** Keep short `// reason:` notes where AGENTS.md §5 requires them; move long decision prose into this file and leave a `// ADR-<id>: <slug>` pointer. Delete Tautology, Stale and Excuse comments, including any "why" comment that only restates what the signature, control flow or imports already show.
-**Why:** A reader needs the local why only when the code cannot prove it. A comment that paraphrases the code is bloat by the same test AGENTS.md §3.4 applies to `??`. Blanket comment banning would break §5's reason-required rule, so the test is per-comment against its code.
-**Rules out:** deleting a reason that records a rejected alternative, an external constraint or a non-local invariant; keeping a comment that restates the code.
+**Choice:** Keep short `// reason:` notes where AGENTS.md §5 requires them; move long decision prose into this file and leave a `// ADR-<id>: <slug>` pointer. Delete a comment only when both its claims and its reason are recoverable from the adjacent signature, control flow, types or imports. A reason naming a rejected alternative, an external constraint or a non-local invariant keeps the comment even when the action itself is obvious.
+**Why:** A reader needs the local why only when the code cannot prove it. A comment that paraphrases the code is bloat by the same test AGENTS.md §3.4 applies to `??`. Blanket comment banning would break §5's reason-required rule, so the test is per-comment against its code. Pass 2 confirmed the failure mode: a mechanical first pass cut 186 storefront comments and 81 had to be restored because their reason was invisible in code.
+**Rules out:** deleting a reason that records a rejected alternative, an external constraint or a non-local invariant; keeping a comment that restates the code; keyword- or length-based comment purges.
 
-## ADR-comments — Ratchet, not a big-bang ban
+## ADR-comments-ratchet — Ratchet, not a big-bang ban
 **Choice:** A comment counter records a per-repo baseline and fails only when the count increases.
 **Why:** Not every comment can be removed in one pass; a hard ban would block all merges while the inventory is still being worked.
 **Rules out:** a lint rule that forbids all comments immediately.
