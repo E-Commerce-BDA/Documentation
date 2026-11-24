@@ -60,8 +60,16 @@ consumer.
 
 - `page.viewed`: produced by anl-002 from HTTP ingest, keyed by `sessionId`,
   via a Mongo outbox row written in the same transaction as validation.
-- `cart.abandoned`: produced by anl-004 from the idle-cart detector, once per
-  cart per idle window.
+- `cart.abandoned`: produced by a one-minute scheduled detector from the latest
+  active `cart_events` fact per cart. A cart is idle after
+  `CART_ABANDONED_AFTER_MS` (default 30 minutes); `ABANDONMENT_SWEEP_ENABLED`
+  (default true) parks the timer and `ABANDONMENT_SWEEP_BATCH_SIZE` (default 100)
+  caps a sweep. The event is keyed by `userId`, or by `sessionId`/`cartId` for a
+  guest. Exactly one event is emitted per cart per idle window: a marker in
+  `abandonment_windows` keyed by `<cartId>|<lastActivityAt>` is inserted with the
+  outbox row in one Mongo transaction, so a repeated scan is a no-op and a newer
+  `cart.updated` opens a new window. The marker has no TTL, matching
+  `processed_events`.
 - Four topics consumed on one group, exactly `analytics-svc`: `cart.updated` →
   `cart_events` (60d), `order.created` → `order_events` (60d), `page.viewed` →
   `page_views` (30d), `user.registered` → `user_events` (60d, id and timestamp
