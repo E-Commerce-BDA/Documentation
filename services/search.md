@@ -293,7 +293,7 @@ Ranked search across products, categories, and blogs with facet filtering and cu
       "updatedAt": "2026-10-28T09:00:00.000Z"
     }
   ],
-  "nextCursor": "eyJ2IjoxLCJxIjoiM2YxMG...",
+  "nextCursor": "eyJ2IjoyLCJxIjoiMGRjODE5M2QwNTc4MmUxNWQyOWU4MWE2MWQ0MTY4M2RkYzc1M2FiYzRlMTc1NTlmZTUxMGVjNjZjMjAyZGI2OCIsInNvcnQiOiJyZWxldmFuY2UiLCJ0eXBlIjoicHJvZHVjdCIsImlkIjoiMDE5MGE4YjAtMDAwMC03MDAwLTgwMDAtMDAwMDAwMDAwMjAxIiwicmFuayI6MC40MjMsInBvcHVsYXJpdHkiOjEyLCJ0b3RhbCI6NDJ9",
   "totalHits": 42
 }
 ```
