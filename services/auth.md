@@ -119,7 +119,22 @@ auth-svc. The row lives in `auth.outbox` and is published by the
 registration (e.g. `409` email taken) rolls the outbox row back with the user
 row, so nothing is announced about an account that does not exist.
 
-### 4.1 Health probes
+### 4.1 Internal address lookup (service to service)
+
+`GET /api/v1/internal/users/:id/email` — also served at
+`/api/v1/auth/internal/users/:id/email` — requires the `x-service-key` header.
+The key comes from `INTERNAL_SERVICE_KEY`, which is mandatory at boot; there is
+no development fallback. A missing or wrong key returns `401` with
+`error.code = SERVICE_KEY_INVALID`. An unknown id returns `404` in the shared
+error envelope.
+
+The response is exactly `{ "userId": "...", "email": "..." }` with
+`Cache-Control: no-store`. The user row is projected down to those two fields
+inside the service, so a password hash, phone number, status or token can never
+leave through this route. It writes no outbox row: notify-svc resolves the
+address this way precisely so that no email ever appears on Kafka.
+
+### 4.2 Health probes
 
 | Probe | Happy path | When it says no | Who asks |
 |---|---|---|---|
