@@ -49,11 +49,12 @@ with `cache-control: no-store`.
 - The validated beacon becomes one `page.viewed` row in `analytics_outbox`,
   written in a Mongo transaction keyed by `sessionId`. Nothing is published
   synchronously; the relay drains after commit. `page_views` facts are written
-  by the anl-003 consumer, not here.
+  by the Kafka consumer, not here.
 
 The only caller is the storefront's Next route `/api/track` (sf-052). The
 browser never sees a Kafka client. Duplicate HTTP beacons are not deduped at
-ingest — at-least-once delivery and `processed_events` dedupe belong to anl-003.
+ingest — at-least-once delivery and `processed_events` dedupe belong to the
+consumer.
 
 ## Kafka ownership
 
@@ -61,8 +62,14 @@ ingest — at-least-once delivery and `processed_events` dedupe belong to anl-00
   via a Mongo outbox row written in the same transaction as validation.
 - `cart.abandoned`: produced by anl-004 from the idle-cart detector, once per
   cart per idle window.
-- Four topics consumed by anl-003 with `processed_events` claimed in the same
-  Mongo transaction as the fact write; invalid payloads go to the topic DLQ.
+- Four topics consumed on one group, exactly `analytics-svc`: `cart.updated` →
+  `cart_events` (60d), `order.created` → `order_events` (60d), `page.viewed` →
+  `page_views` (30d), `user.registered` → `user_events` (60d, id and timestamp
+  only). Each fact and its `processed_events` claim are written in one Mongo
+  transaction; invalid payloads go to the topic DLQ. The retry ladder is bounded
+  to a 20s budget, so five attempts over 15s of sleeps fit inside the 45s broker
+  session. `KAFKA_CONSUMER_ENABLED=false` parks the consumer without touching
+  the HTTP beacon.
 
 ## Gates
 
