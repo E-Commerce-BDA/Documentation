@@ -417,7 +417,7 @@ sampler runs on a 15 s timer and only once the consumer has joined, so a test pr
 | `blog.updated` | `blogId` | `BlogUpdatedPayload` | Upsert as `blog`. If `status == 'draft'`, sets index status to `inactive`. |
 
 ### Kafka Consumer Specifications
-- **Transport:** the `@nestjs/microservices` Kafka transport, through `@ecom/messaging` `0.3.0`
+- **Transport:** the `@nestjs/microservices` Kafka transport, through `@ecom/messaging` `0.5.0`
   (`srch-002`). `src/events/search-consumer.controller.ts` declares one `@EventPattern` per topic and
   hands the raw record to `KafkaEventHandler.run(ctx, topic, raw, …)`. `@Payload` + `@Ctx` are
   load-bearing: Nest's `RpcContextCreator` otherwise maps only the first positional argument, `ctx`

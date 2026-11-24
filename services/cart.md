@@ -573,7 +573,7 @@ cart-svc consumes exactly one topic, and it is how a cart is converted.
 
 | Item | Value |
 |---|---|
-| Transport | `@nestjs/microservices` Kafka transport via `@ecom/messaging` `0.3.0` (`createKafkaConsumerStrategy`, `KafkaEventHandler`) |
+| Transport | `@nestjs/microservices` Kafka transport via `@ecom/messaging` `0.5.0` (`createKafkaConsumerStrategy`, `KafkaEventHandler`) |
 | Consumer group | `cart-svc` — exactly the service name (`postfixId: ''`), never `cart-svc-server` |
 | Topic / DLQ | `order.created` / `order.created.dlq` |
 | Dedupe | `cart.processed_events` (`event_id` PK, `topic`, `processed_at`), claimed **inside** the conversion transaction |

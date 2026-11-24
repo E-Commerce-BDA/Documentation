@@ -86,7 +86,7 @@ Two consequences worth stating plainly:
 
 | Setting | Value |
 |---|---|
-| Transport | `@nestjs/microservices` Kafka transport via `@ecom/messaging` `0.3.0` |
+| Transport | `@nestjs/microservices` Kafka transport via `@ecom/messaging` `0.5.0` |
 | Entry point | `src/events/catalog-consumer.controller.ts` — two `@EventPattern` methods |
 | Topics | `order.created` (3 partitions, key `orderId`), `product.imported` (1 partition, key `productId`) |
 | Consumer group | `catalog-svc` — exactly the service name (`postfixId: ''`) |
