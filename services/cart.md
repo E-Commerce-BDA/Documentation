@@ -578,6 +578,7 @@ cart-svc consumes exactly one topic, and it is how a cart is converted.
 | Topic / DLQ | `order.created` / `order.created.dlq` |
 | Dedupe | `cart.processed_events` (`event_id` PK, `topic`, `processed_at`), claimed **inside** the conversion transaction |
 | Switch | `KAFKA_CONSUMER_ENABLED` (default `true`, `false` in the e2e config) |
+| Catalog failures | `GET /api/v1/cart/internal/catalog-metrics` behind `x-service-key` (`ca-013`), with `Cache-Control: no-store`, returns `{ catalogUnavailable }`. `HttpCatalogClient.fail()` increments it once per 503; a well-formed response with no row stays a 422 and is not counted. No upstream URL or status is exposed. |
 | Stats | `GET /api/v1/cart/internal/consumer-stats` behind `x-service-key` (`ca-012`), with `Cache-Control: no-store`. It returns the nine shared counters (`accepted`, `skipped`, `committed`, `duplicate`, `ignored`, `invalid`, `dlq`, `commit`, `stalled`) beside `lag`, `totalLag`, `lastCommit` and `sampledAt`, the same shape catalog and search expose. The lag comes from a separate admin connection measured as the group itself, so a broker the sampler cannot reach is a missing sample, not a stalled commit. No shopper data is in the response |
 
 One event, one transaction:
