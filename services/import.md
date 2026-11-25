@@ -30,11 +30,11 @@ Admin UI ──upload──► import-svc (:4070) ──writes──► Postgres
 One bad row must not fail the whole file, so rows are split into tasks and
 retried individually. The job record is the report an admin polls.
 
-The upload API and SQS row producer are in place (imp-002): an admin uploads a
-CSV or JSON file, the service creates a job and one row per source row, and
-enqueues one `import-process-row` task per valid row. The worker and the
-`product.imported` publisher arrive in imp-003. No Kafka code is involved in
-row work.
+The upload API, SQS producer and worker are in place (imp-002/imp-003): an
+admin uploads a CSV or JSON file, the service creates a job and one row per
+source row, enqueues one `import-process-row` task per valid row, and the worker
+writes `product.imported` to the outbox. import-svc publishes that event; no
+Kafka consumer exists here.
 
 ## 2. What import owns
 
@@ -76,6 +76,22 @@ lose the rest of the file. A queue refusal marks only that row failed.
 `GET /api/v1/import/jobs` lists jobs (`?page=&status=`);
 `GET /api/v1/import/jobs/:id` returns `{job, report}`. The poller is off by
 default; set `SQS_TASKS_ENABLED=true` only when LocalStack is running.
+
+### 3.2 Row worker and outbox
+
+The worker long-polls `import-process-row` in batches of 10. It validates one
+row into `productImportedPayloadSchema`, then writes the event into
+`import.outbox` and marks `import_rows` processed in **one Postgres
+transaction** — the row and the event cannot diverge. The relay publishes the
+stored envelope; import-svc has no Kafka consumer.
+
+A row without a valid `id` gets a minted UUID, stored in `import_rows.product_id`
+and used as the Kafka key. The slug comes from `row.slug` or the name; status
+defaults to `active` and `updatedAt` is server time. A row that cannot satisfy
+the contract is marked failed and acknowledged: retrying it would not fix it.
+A transient database failure is thrown so SQS retries five times before
+`import-process-row-dlq`. A redelivery of a processed row is a no-op under a row
+lock, so no second event is written.
 
 ## 4. Endpoints
 
