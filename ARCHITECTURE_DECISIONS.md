@@ -69,6 +69,25 @@
 **Why:** Not every comment can be removed in one pass; a hard ban would block all merges while the inventory is still being worked.
 **Rules out:** a lint rule that forbids all comments immediately.
 
+### Implementation (doc-006)
+The counter is `scripts/comment-ratchet/count_comments.py` and its snapshot is
+`scripts/comment-ratchet/comment-baseline.json` — one reviewable-comment count
+per code repo. Run the script with no arguments from anywhere in the checkout;
+it exits `1` only when a repo is above its baseline, so deleting comments can
+never fail it. Generated files and the reason-required constructs of AGENTS.md
+§5 (`reason:`, `ADR-*:`, lint/TS directives, `!important`/`console.`/`??`
+justifications) are excluded because they are not removable by choice.
+
+An addition is approved by judging it against ADR-comments and regenerating the
+baseline with `--update-baseline` in the same commit, with the reason in the
+commit body. `--repo` scopes a check and `--json` feeds another tool. The full
+command list and the four-case acceptance test are in
+`scripts/comment-ratchet/README.md`; the test proves that one added comment
+fails and that removals pass.
+
+No CI hook is configured here. This file documents the pre-merge check and the
+script implements it; a job may call the same command later without editing it.
+
 ## ADR-media — Containment lives in one path resolver
 **Choice:** All media reads go through `resolvePath`; the storage port takes a `read` function, not a path, and the local adapter reads through `resolvePath`.
 **Why:** A symlink planted under the root must be rejected identically on upload, worker read, and delivery. A path-taking port would make each adapter invent its own containment rule.
