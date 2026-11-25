@@ -32,17 +32,19 @@ The events carry a user **id**, never an address. To address a message, notify
 asks auth-svc's internal endpoint `GET /internal/users/:id/email` with its
 service key (`au-005`). That keeps personal information off the event bus.
 
-In this first slice (ntf-001) the service is a scaffold: it owns its schema and
-answers health probes. The Kafka consumer and the SQS worker arrive in ntf-002
-and ntf-003.
+The Kafka consumer is in place (ntf-002): it maps four events to SQS email
+jobs. The worker that actually resolves the address and sends SMTP arrives in
+ntf-003. Until then the SQS module is producer-only, with no poller.
 
 ## 2. What notify owns
 
 - **Postgres `notify` schema** in the shared `ecom` database. No new container.
-- **`email_logs`** — one row per attempted send, so a reminder can be audited
-  and retried. Columns: `id`, `user_id`, `to_address`, `subject`, `template`,
-  `status` (`pending|sent|failed`), `attempts`, `last_error`, `created_at`,
-  `sent_at`. Indexes on `status`, `user_id` and `created_at`.
+- **`email_logs`** — one row per email job, so a reminder can be audited and
+  retried. Columns: `id`, `user_id` (nullable for guests), `aggregate_id`,
+  `to_address` (nullable until the worker resolves it), `subject`, `template`,
+  `idempotency_key`, `status` (`pending|sent|failed`), `attempts`, `last_error`,
+  `created_at`, `sent_at`. Indexes on `status`, `user_id`, `created_at` and a
+  unique index on `idempotency_key` so a repeated delivery cannot send twice.
 - **`processed_events`** — `event_id`, `topic`, `processed_at`. The claim is
   written in the same transaction as the email log row, so an at-least-once
   redelivery cannot send the same message twice.
@@ -57,6 +59,29 @@ and ntf-003.
 3. `reminder.dispatch` does not exist. An idle cart becomes `cart.abandoned`,
    and the send-email queue covers the reminder.
 4. The API has no shopper-facing routes. Internal routes use a service key.
+
+### 3.1 Event-to-job mapping
+
+One consumer group, exactly `notify-svc`, subscribes to four topics:
+
+| Event | Job template | Aggregate key |
+|---|---|---|
+| `order.created` | `order-confirmation` | `orderId` |
+| `cart.abandoned` | `cart-abandoned` | `cartId` (`userId` when present) |
+| `user.registered` | `welcome` | `userId` |
+| `order.status.updated` | `order-confirmation` | `orderId` |
+
+The contract defines only three templates, so a status notice reuses
+`order-confirmation` with a distinct idempotency key. A dedicated status
+template would be a contracts change.
+
+Each event is claimed in `notify.processed_events` and gets one `email_logs`
+row in the same Postgres transaction. The `notify-send-email` job is enqueued
+after commit with the same `idempotencyKey` (`event:<event id>`). If SQS refuses
+the job, the claim and log are compensated so a redelivery can retry; if a
+commit fails after an enqueue, the worker's unique key drops the duplicate.
+The retry ladder is bounded to 20s so five attempts fit inside the 45s broker
+session. `KAFKA_CONSUMER_ENABLED=false` parks the consumer.
 
 ## 4. Endpoints (v1 scaffold)
 
