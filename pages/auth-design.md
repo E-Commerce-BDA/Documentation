@@ -123,11 +123,11 @@ reaching JS fails a test rather than a review (`4.API-Design.md §3.10`).
   intended for a third party.
 - **Sign-out is a `POST`.** `SameSite=Lax` still sends cookies on a top-level cross-site `GET`, so
   a `GET /api/auth/logout` link would let any page sign a shopper out.
-- **Errors are mapped, never forwarded.** auth-svc emits no domain error codes yet, so
-  `INVALID_CREDENTIALS`, `TOKEN_REUSED`, `ACCOUNT_DISABLED` and `SERVICE_UNAVAILABLE` are derived
-  from status *and* message. Rendering auth-svc's `message` would leak internal phrasing and, for
-  the disabled-account case, an enumeration oracle. Domain codes in the auth-svc error envelope
-  are the fix, and they belong to auth-svc.
+- **Errors are mapped, never forwarded.** auth-svc now puts `TOKEN_REUSED` and
+  `ACCOUNT_DISABLED` in the shared error envelope (au-006); the client classifies from status
+  plus a known `error.code`, never from message text. Login stays generic on purpose: a distinct
+  "disabled" reply for sign-in would be an enumeration oracle. Rendering auth-svc's `message`
+  would leak internal phrasing, so the UI always uses its own copy.
 - **Not built.** There is no sign-out affordance in the shell yet (`signout` exists in the nav
   vocabulary but renders no link — the menu must post a form), and no forgot-password flow exists
   on either side, because auth-svc exposes no reset endpoint. `ForgotForm` keeps a
