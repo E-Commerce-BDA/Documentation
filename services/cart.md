@@ -578,7 +578,7 @@ cart-svc consumes exactly one topic, and it is how a cart is converted.
 | Topic / DLQ | `order.created` / `order.created.dlq` |
 | Dedupe | `cart.processed_events` (`event_id` PK, `topic`, `processed_at`), claimed **inside** the conversion transaction |
 | Switch | `KAFKA_CONSUMER_ENABLED` (default `true`, `false` in the e2e config) |
-| Stats | **No endpoint yet.** The nine shared counters live in-process in `KafkaEventHandler` (`accepted`, `skipped`, `committed`, `duplicate`, `ignored`, `invalid`, `dlq`, `commit`, `stalled`), but cart-svc does not expose them — only `catalog-svc` and `search-svc` have a `/consumer-stats` route (`10.Observability.md §3`). Until one is added, the group's position comes from `kafka-consumer-groups.sh --describe --group cart-svc`. Named debt, not coverage |
+| Stats | `GET /api/v1/cart/internal/consumer-stats` behind `x-service-key` (`ca-012`), with `Cache-Control: no-store`. It returns the nine shared counters (`accepted`, `skipped`, `committed`, `duplicate`, `ignored`, `invalid`, `dlq`, `commit`, `stalled`) beside `lag`, `totalLag`, `lastCommit` and `sampledAt`, the same shape catalog and search expose. The lag comes from a separate admin connection measured as the group itself, so a broker the sampler cannot reach is a missing sample, not a stalled commit. No shopper data is in the response |
 
 One event, one transaction:
 
