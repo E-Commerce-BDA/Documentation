@@ -30,9 +30,11 @@ Admin UI ──upload──► import-svc (:4070) ──writes──► Postgres
 One bad row must not fail the whole file, so rows are split into tasks and
 retried individually. The job record is the report an admin polls.
 
-In this first slice (imp-001) the service owns only its schema and health
-probes. The upload API and SQS producer arrive in imp-002; the worker and the
-`product.imported` publisher arrive in imp-003.
+The upload API and SQS row producer are in place (imp-002): an admin uploads a
+CSV or JSON file, the service creates a job and one row per source row, and
+enqueues one `import-process-row` task per valid row. The worker and the
+`product.imported` publisher arrive in imp-003. No Kafka code is involved in
+row work.
 
 ## 2. What import owns
 
@@ -56,7 +58,26 @@ probes. The upload API and SQS producer arrive in imp-002; the worker and the
    same row instead of appending another.
 3. No real customer data in fixtures: tests use synthetic SKUs and names.
 
-## 4. Endpoints (v1 scaffold)
+### 3.1 Upload and row tasks
+
+`POST /api/v1/import` accepts a multipart `file` with `source=csv|json` and
+`stockMode=replace|add`, guarded by a JWT admin token. The request only parses
+the file, writes the job and its rows in one transaction, and returns
+`202 {jobId}`; rows are never processed inline. Each row becomes an
+`import-process-row` SQS message with idempotency key
+`import-row:<jobId>:<rowNumber>`, so a redelivery updates one `import_rows` row
+instead of appending another.
+
+A row missing `sku`, `name` or `price` is stored as failed with an error and is
+not enqueued. A SKU already used earlier in the same file is likewise failed
+with `duplicate-sku`. Neither rejects the whole upload: one bad row must not
+lose the rest of the file. A queue refusal marks only that row failed.
+
+`GET /api/v1/import/jobs` lists jobs (`?page=&status=`);
+`GET /api/v1/import/jobs/:id` returns `{job, report}`. The poller is off by
+default; set `SQS_TASKS_ENABLED=true` only when LocalStack is running.
+
+## 4. Endpoints
 
 | Probe | Happy path | When it says no | Who asks |
 |---|---|---|---|
