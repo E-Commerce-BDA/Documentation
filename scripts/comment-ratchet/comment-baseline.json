@@ -3,18 +3,18 @@
   "repos": {
     "admin-app": 0,
     "analytics-svc": 194,
-    "auth-svc": 139,
+    "auth-svc": 155,
     "cart-svc": 481,
     "catalog-svc": 1131,
-    "cms-svc": 562,
+    "cms-svc": 624,
     "ecom-contracts": 198,
-    "ecom-infra": 414,
+    "ecom-infra": 586,
     "ecom-messaging": 710,
     "import-svc": 41,
     "notify-svc": 99,
-    "order-svc": 501,
+    "order-svc": 569,
     "search-svc": 539,
-    "storefront-ui": 4756
+    "storefront-ui": 5047
   },
   "version": 1
 }
