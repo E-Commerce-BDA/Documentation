@@ -83,6 +83,22 @@ commit fails after an enqueue, the worker's unique key drops the duplicate.
 The retry ladder is bounded to 20s so five attempts fit inside the 45s broker
 session. `KAFKA_CONSUMER_ENABLED=false` parks the consumer.
 
+### 3.2 Send-email worker
+
+The `notify-send-email` worker long-polls 20s in batches of 10. SQS owns the
+retries (5 receives) and the `notify-send-email-dlq` dead letter; there is no
+Kafka involvement. Set `SQS_TASKS_ENABLED=true` to start the poller — it is off
+by default so a local run without LocalStack stays quiet. SMTP points at
+Mailpit on port 1025 by default (`SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`).
+
+For each job the worker resolves the address through auth-svc's internal
+lookup using `x-service-key: NOTIFY_INTERNAL_SERVICE_KEY`, then sends and
+records the provider message id in `email_logs`. A job whose idempotency key is
+already `sent` is a no-op. An SMTP or lookup failure is recorded as `failed`
+and the error is rethrown so the message is redelivered. A guest cart has no
+user id and therefore no address: the job is acknowledged, recorded as failed
+with that reason, and not retried.
+
 ## 4. Endpoints (v1 scaffold)
 
 | Probe | Happy path | When it says no | Who asks |
