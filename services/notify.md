@@ -71,9 +71,9 @@ One consumer group, exactly `notify-svc`, subscribes to four topics:
 | `user.registered` | `welcome` | `userId` |
 | `order.status.updated` | `order-confirmation` | `orderId` |
 
-The contract defines only three templates, so a status notice reuses
-`order-confirmation` with a distinct idempotency key. A dedicated status
-template would be a contracts change.
+`status-update` was added in contracts 1.17.0. The job carries no status field,
+so the rendered notice is deliberately generic; a richer notice needs a new job
+field, which would be another contracts change.
 
 Each event is claimed in `notify.processed_events` and gets one `email_logs`
 row in the same Postgres transaction. The `notify-send-email` job is enqueued
@@ -99,6 +99,19 @@ and the error is rethrown so the message is redelivered. A guest cart has no
 user id and therefore no address: the job is acknowledged, recorded as failed
 with that reason, and not retried.
 
+### 3.3 Templates and support endpoint
+
+Four renderers live in `src/templates/`: `welcome`, `order-confirmation`,
+`cart-abandoned` and `status-update`. Each declares the variables it needs. A
+missing variable throws in tests and, in production, renders a short generic
+body while logging only the template id and the missing key names — never their
+values, so an address cannot leak into a log line. Bodies carry identifiers,
+never email addresses.
+
+`POST /api/v1/admin/test-email` enqueues one test job through the same SQS path
+as a real event and answers `202`. It requires `x-service-key` and accepts a
+template plus the aggregate it is about; it never accepts an address.
+
 ## 4. Endpoints (v1 scaffold)
 
 | Probe | Happy path | When it says no | Who asks |
@@ -121,4 +134,4 @@ and health behaviour; no live broker or SMTP is needed for the scaffold.
 - Repo: `notify-svc/` on `master`, port 4080.
 - Schema: `db/001-notify-schema.sql`.
 - Service code: `src/{app.module,app.setup,main}.ts`, `src/db/`, `src/health/`.
-- Shared contracts: `@ecom/contracts` 1.16.0, `@ecom/messaging` 0.5.0.
+- Shared contracts: `@ecom/contracts` 1.17.0, `@ecom/messaging` 0.5.0.
