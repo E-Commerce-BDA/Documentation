@@ -166,3 +166,16 @@ PostgreSQL schema `"order"` contains 8 dedicated tables:
 * **Code Quality & Linter**:
   * `oxlint --type-aware src/ test/`: **0 warnings / 0 errors** on 70 files with 111 rules.
   * `nest build`: Clean TypeScript build exiting code `0`.
+
+## Transport ownership (canonical)
+
+Source of truth: `state-for-agents/STATUS.md` section 5. This table must match
+the shared messaging catalog; a service may not claim a producer or consumer
+that the running code does not own.
+
+| Role | Topics / queues |
+|---|---|
+| Publishes | order.created, order.status.updated (key orderId) |
+| Consumes | none |
+| SQS tasks | none |
+| Must not | No consumer and no tasks; no cart client after ord-012. |

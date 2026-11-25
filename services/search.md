@@ -539,3 +539,15 @@ If a cursor generated for `"shoes"` is supplied with query `"shirts"`, the servi
 - `SERVICE_KEY_INVALID` (401 / 403)
 - `SEARCH_UNAVAILABLE` (503)
 
+## Transport ownership (canonical)
+
+Source of truth: `state-for-agents/STATUS.md` section 5. This table must match
+the shared messaging catalog; a service may not claim a producer or consumer
+that the running code does not own.
+
+| Role | Topics / queues |
+|---|---|
+| Publishes | none |
+| Consumes | product.imported, product.updated, category.updated, blog.updated |
+| SQS tasks | none |
+| Must not | No running producer; the DLQ replay CLI is an operator tool, not a service producer. |

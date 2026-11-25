@@ -219,3 +219,16 @@ other sessions; two tabs refreshing at once don't trigger theft alarms.
 * Frontend companion (to create): `pages/auth.md` — cookie handling in
   Next.js, guards, forms; points back here for everything server-side.
 * Cart policy, merge rules, and admin settings: `services/cart.md` §5–6.
+
+## Transport ownership (canonical)
+
+Source of truth: `state-for-agents/STATUS.md` section 5. This table must match
+the shared messaging catalog; a service may not claim a producer or consumer
+that the running code does not own.
+
+| Role | Topics / queues |
+|---|---|
+| Publishes | user.registered (key userId) |
+| Consumes | none |
+| SQS tasks | none |
+| Must not | No Kafka consumer and no SQS tasks; the internal email lookup is HTTP with x-service-key. |

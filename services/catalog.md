@@ -334,3 +334,16 @@ Commands: `pnpm lint`, `pnpm test`, `pnpm test:e2e`, `npx tsc --noEmit`,
 | Variants are not removed by absence | by design (§4.6); withdrawal is a human decision |
 | No import metrics beyond the counters | the log line reports created/updated, variant, image and stock-figure counts; there is no per-import success rate anywhere |
 | `catalog.outbox` rows are not auto-replayed | `failed` rows are alerted and replayed by hand (`10.Observability.md §4`) |
+
+## Transport ownership (canonical)
+
+Source of truth: `state-for-agents/STATUS.md` section 5. This table must match
+the shared messaging catalog; a service may not claim a producer or consumer
+that the running code does not own.
+
+| Role | Topics / queues |
+|---|---|
+| Publishes | product.updated, category.updated (keys productId / categoryId) |
+| Consumes | product.imported, order.created, order.status.updated |
+| SQS tasks | none |
+| Must not | No SQS tasks; no outbox re-emit for imported products. |

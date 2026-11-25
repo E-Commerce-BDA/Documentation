@@ -876,3 +876,16 @@ codes:
 - Test gates: `9.Testing.md` §3.3.
 - Tracker: `state-for-agents/tasks.json` (`ca-002`–`ca-006`) and
   `TASKS/todo/`.
+
+## Transport ownership (canonical)
+
+Source of truth: `state-for-agents/STATUS.md` section 5. This table must match
+the shared messaging catalog; a service may not claim a producer or consumer
+that the running code does not own.
+
+| Role | Topics / queues |
+|---|---|
+| Publishes | cart.updated (key cartId) |
+| Consumes | order.created |
+| SQS tasks | none |
+| Must not | No SQS tasks; cart conversion is event-driven through the shared consumer. |

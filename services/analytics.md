@@ -83,3 +83,16 @@ consumer.
 
 `pnpm typecheck`, `pnpm test`, `pnpm test:e2e` (skips without Mongo),
 `pnpm lint`, `pnpm build`.
+
+## Transport ownership (canonical)
+
+Source of truth: `state-for-agents/STATUS.md` section 5. This table must match
+the shared messaging catalog; a service may not claim a producer or consumer
+that the running code does not own.
+
+| Role | Topics / queues |
+|---|---|
+| Publishes | page.viewed (key sessionId), cart.abandoned (key userId) |
+| Consumes | cart.updated, order.created, page.viewed, user.registered |
+| SQS tasks | none |
+| Must not | No SQS tasks. |

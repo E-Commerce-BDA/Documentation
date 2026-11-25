@@ -456,3 +456,15 @@ echo "Restore complete and verified."
    - Unique and compound indexes are restored without corruption.
 2. **Log Alerting:** Any failed backup cron triggers a high-priority PagerDuty / Slack alert (`cms.backup.failed`).
 
+## Transport ownership (canonical)
+
+Source of truth: `state-for-agents/STATUS.md` section 5. This table must match
+the shared messaging catalog; a service may not claim a producer or consumer
+that the running code does not own.
+
+| Role | Topics / queues |
+|---|---|
+| Publishes | cms.updated, blog.updated |
+| Consumes | none |
+| SQS tasks | media-resize-image (producer + worker) |
+| Must not | No Kafka consumer; no Kafka media.tasks. Storefront invalidation is the HTTP webhook. |

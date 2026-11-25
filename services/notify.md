@@ -127,11 +127,24 @@ the object verbatim so the shape does not become Nest's default error body.
 
 `npx tsc --noEmit`, `pnpm test`, `pnpm test:e2e` (health skip paths without a
 database), `pnpm lint`, `pnpm build`. Unit tests assert the schema declaration
-and health behaviour; no live broker or SMTP is needed for the scaffold.
+and health behaviour; unit tests use a fake mailer, so no SMTP or broker is needed.
 
 ## Appendix — where each fact lives
 
 - Repo: `notify-svc/` on `master`, port 4080.
 - Schema: `db/001-notify-schema.sql`.
-- Service code: `src/{app.module,app.setup,main}.ts`, `src/db/`, `src/health/`.
+- Service code: `src/{app.module,app.setup,main}.ts`, `src/db/`, `src/health/`, `src/consumer/`, `src/tasks/`, `src/templates/`, `src/admin/`.
 - Shared contracts: `@ecom/contracts` 1.17.0, `@ecom/messaging` 0.5.0.
+
+## Transport ownership (canonical)
+
+Source of truth: `state-for-agents/STATUS.md` section 5. This table must match
+the shared messaging catalog; a service may not claim a producer or consumer
+that the running code does not own.
+
+| Role | Topics / queues |
+|---|---|
+| Publishes | none |
+| Consumes | order.created, cart.abandoned, user.registered, order.status.updated |
+| SQS tasks | notify-send-email (producer + worker) |
+| Must not | No Kafka producer. |

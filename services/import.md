@@ -108,11 +108,24 @@ become Nest's default error body.
 
 `npx tsc --noEmit`, `pnpm test`, `pnpm test:e2e` (health skip paths without a
 database), `pnpm lint`, `pnpm build`. Unit tests assert the schema declaration
-and health behaviour; no broker or SQS is needed for the scaffold.
+and health behaviour; unit tests fake the pool and task queue, so no broker is needed.
 
 ## Appendix — where each fact lives
 
 - Repo: `import-svc/` on `master`, port 4070.
 - Schema: `db/001-import-schema.sql`.
-- Service code: `src/{app.module,app.setup,main}.ts`, `src/db/`, `src/health/`.
+- Service code: `src/{app.module,app.setup,main}.ts`, `src/db/`, `src/health/`, `src/auth/`, `src/import/`, `src/outbox/`, `src/worker/`.
 - Shared contracts: `@ecom/contracts` 1.17.0, `@ecom/messaging` 0.5.0.
+
+## Transport ownership (canonical)
+
+Source of truth: `state-for-agents/STATUS.md` section 5. This table must match
+the shared messaging catalog; a service may not claim a producer or consumer
+that the running code does not own.
+
+| Role | Topics / queues |
+|---|---|
+| Publishes | product.imported (key productId) |
+| Consumes | none |
+| SQS tasks | import-process-row (producer + worker) |
+| Must not | No Kafka consumer; row work is SQS only. |
