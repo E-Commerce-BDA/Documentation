@@ -5,16 +5,16 @@
     "analytics-svc": 265,
     "auth-svc": 182,
     "cart-svc": 502,
-    "catalog-svc": 1150,
-    "cms-svc": 663,
-    "ecom-contracts": 199,
-    "ecom-infra": 765,
+    "catalog-svc": 1161,
+    "cms-svc": 725,
+    "ecom-contracts": 201,
+    "ecom-infra": 766,
     "ecom-messaging": 712,
     "import-svc": 73,
     "notify-svc": 115,
     "order-svc": 592,
     "search-svc": 538,
-    "storefront-ui": 5095
+    "storefront-ui": 5347
   },
   "version": 1
 }
