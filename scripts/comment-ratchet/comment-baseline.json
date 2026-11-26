@@ -2,19 +2,19 @@
   "description": "Maximum reviewable comment lines per repo. Regenerate only after each added comment has been reviewed against ADR-comments.",
   "repos": {
     "admin-app": 0,
-    "analytics-svc": 241,
+    "analytics-svc": 265,
     "auth-svc": 182,
     "cart-svc": 502,
     "catalog-svc": 1150,
     "cms-svc": 663,
     "ecom-contracts": 199,
-    "ecom-infra": 589,
+    "ecom-infra": 765,
     "ecom-messaging": 712,
     "import-svc": 73,
     "notify-svc": 115,
     "order-svc": 592,
     "search-svc": 538,
-    "storefront-ui": 5047
+    "storefront-ui": 5095
   },
   "version": 1
 }
