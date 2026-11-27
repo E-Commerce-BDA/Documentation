@@ -2,7 +2,7 @@
 
 > Platform: Next.js 16 (App Router) + React 19 + Tailwind CSS 4 + TypeScript 5 + shadcn/ui + Radix (optional)
 > Theme: Oceanic Blue — aligned with storefront tokens; **admin primary buttons stay black & white (ink + white)**
-> Status: Active | Version 1.0 | Date: 2026-08-24
+> Status: Active | Version 1.1 | Date: 2026-08-24 | Wave 4 amendment: 2026-11-27
 > Parent: `docs/6.Admin-Panel.md` (screens §3, registry §4, patterns §7) | `docs/5.Features.md` Part B | `docs/2.Tech-Stack.md` §4
 > Implements: `frontend/admin/app/*` + `components/*` + `lib/api-client/*` + `store/*`
 > Figma: (add file URL when created)
@@ -71,6 +71,23 @@ production is what makes WYSIWYG true instead of a second implementation.
 The legacy `--color-*` names below are admin-local aliases; merchant `--sf-*`
 values are never aliased into admin chrome. See ADR-tokens and
 [storefront.md](storefront.md) §3.0 for the full layer model.
+
+#### Wave 4 amendment (sf-096) — preview draft posts and framing
+
+The admin is the *producer* of draft patches; the storefront is the only place
+that turns them into paint. This amends ADR-tokens on the admin side:
+
+| Amendment | Choice | Reason | Rejected |
+|---|---|---|---|
+| Draft posts, not chrome paint | The iframe posts `{ type: "ecom:storefront-preview-draft@1", configVersion: "2.2.0", revision, config: { theme?, navigation?, footer? } }` to the storefront bridge; `lib/preview/draft.ts` rejects raw CSS keys/values and re-parses `theme` through `themeSettingsSchema`. The admin shell never reads the patch | One renderer for preview and production; a patch that can reach admin chrome would let a message re-skin the tool | admin-local theme state, raw CSS injection, accepting a foreign-shape patch |
+| `--adm-*` stays author-only | Admin chrome reads only static `--adm-*` vars; merchant `--sf-*` values are consumed by the preview surface (the real storefront renderer) inside the frame, never by sidebar/topbar/tables/forms | A merchant cannot re-skin the tool used to run the store, and a draft message cannot write `--adm-*` into storefront paint | aliasing `--sf-*` into `--adm-*`; letting a patch carry var names |
+| Exact-origin framing | The storefront's `proxy.ts` emits `frame-ancestors <ADMIN_ORIGIN>` only when a preview token is present; published routes carry no CSP header. `ADMIN_ORIGIN` is canonicalized once (`lib/preview/origin.ts`); an unparseable value fails closed | `postMessage` and `frame-ancestors` must agree on one origin, and published pages must not change embedding behaviour | `*`; deriving the origin from the browser message |
+| Token stays server-side | The storefront config route (`GET /api/config/storefront`) returns preview metadata (`tokenUrl`, `queryParam`, `headerName`) and never the token; the admin BFF mints it | A token in the browser bundle would defeat the scoped-preview boundary | passing the token into an island or the patch |
+
+The preview remains a contract/unit-verified seam: navigation and footer draft
+patches are accepted but do not repaint nav chrome in this pass, and no live
+admin-iframe browser run was performed. Storefront-side implementation detail
+is in [storefront.md](storefront.md) §3.0 Wave 4 amendment.
 
 Admin shares storefront neutrals/status but surfaces are `#F5FAFC` page + white cards, and **actions are monochrome ink**. Every token has hex + usage.
 
@@ -160,7 +177,7 @@ Base `4px`: `4 · 8 · 12 · 16 · 20 · 24 · 32`. Controls grid `320px 1fr gap
 
 ### 7.3 Forms — inputs per §3.3; validation inline `.err 12px #D92D20`; 409 conflicts as blocking banners.
 
-### 7.4 CTAs Editor — `hero.slides[].ctas` + `banner.ctas`: `z.array(ctaSchema).max(3)`, per-CTA `text(1-50)/link(internal)/bg/textColor/borderColor/borderWidth 0-4/borderRadius 0-24 (default 8)`; live preview `?preview=1` renders the storefront `HeroSection` surface (ocean primary `--sf-brand`) inside the admin frame — chrome stays `--adm-*` ink and never reads merchant tokens.
+### 7.4 CTAs Editor — `hero.slides[].ctas` + `banner.ctas`: `z.array(ctaSchema).max(3)`, per-CTA `text(1-50)/link(internal)/bg/textColor/borderColor/borderWidth 0-4/borderRadius 0-24 (default 8)`; live preview `?preview=1` renders the storefront `HeroSection` surface (ocean primary `--sf-brand`) inside the admin frame — chrome stays `--adm-*` ink and never reads merchant tokens. Draft edits reach that surface as the versioned `postMessage` patch of §3.0 (Wave 4), not as admin-local CSS.
 
 ### 7.5 Media Picker — modal grid, usage filter `product/section/blog`, multi-select, S3 upload.
 

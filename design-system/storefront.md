@@ -2,7 +2,7 @@
 
 > Platform: Next.js 16 (App Router) + React 19 + Tailwind CSS 4 + TypeScript 5
 > Theme: Oceanic Blue — light gradient hero, flat solid buttons, wave hover
-> Status: Active | Version 1.0 | Date: 2026-08-24
+> Status: Active | Version 1.1 | Date: 2026-08-24 | Wave 4 amendment: 2026-11-27
 > Parent: `docs/6.Admin-Panel.md` §4, `docs/pages/home.md` §3, `docs/2.Tech-Stack.md` §4
 > Implements: `E:\E-Commerce\index.html` (source of truth until globals.css is wired) → `frontend/storefront/src/app/globals.css` + `layout.tsx` + `components/*`
 > Figma: (add file URL when created)
@@ -112,6 +112,30 @@ canonical `--sf-*` names for one release (sf-084). New work uses `--sf-*` only;
 no component-level `??` fallback may freeze the theme out of the var chain.
 
 All colors are emitted as `:root` vars and consumed via Tailwind `@theme inline`. Never use a primitive hex directly in `components/` — use a semantic token.
+
+#### Wave 4 amendment (sf-096) — preview draft patches, framing, admin separation
+
+Three choices amend ADR-tokens without adding a second theme source. They are
+recorded here because the preview path is where "one renderer, one paint
+namespace" is easiest to break.
+
+| Amendment | Choice | Reason | Rejected |
+|---|---|---|---|
+| Versioned draft patch | `app/(shop)/_components/PreviewDraftBridge.tsx` accepts only `ecom:storefront-preview-draft@1` with `{ type, configVersion: "2.2.0", revision, config: { theme?, navigation?, footer? } }`; `lib/preview/draft.ts` validates shape, rejects `--adm-*` / `--sf-*` / `var()` / `url()` keys and values, and parses `theme` through `themeSettingsSchema` | A patch is advisory and must never throw into a shopper or inject raw CSS; a foreign-version message is ignored rather than guessed at | accepting arbitrary `theme` records or CSS-var text; parsing CSS in a client island |
+| Sparse patch over published theme | `lib/preview/vars.ts` merges changed authored fields over the published document (nested groups per key, arrays/scalars replaced) and runs the **same** `resolvePalette` / `resolveComponentGroups` / `themeToCssVars` / `paletteToThemeVars` emitters a published read uses; vars are written to `<html>` (published map is on `<body>`) and reverted by deleting only the keys this bridge added | resolving the draft alone would silently reset untouched merchant values to library defaults; `<html>` scoping makes revert exact | a separate preview palette resolver; writing vars onto the published `<body>` map |
+| Exact admin origin + CSP | `lib/preview/origin.ts` canonicalizes `ADMIN_ORIGIN` with `new URL(...).origin`; the bridge listens only when `event.origin === allowed`; `proxy.ts` adds `content-security-policy: frame-ancestors <origin>` only on preview requests and no CSP header on published routes | `postMessage` and `frame-ancestors` must agree on one origin; a header on published pages would change their embedding behaviour for no reason | deriving the allowed origin from `event.origin` or a browser value; `*`; failing open when `ADMIN_ORIGIN` cannot be parsed (it fails closed — no header, iframe will not load) |
+
+Two consequences stay in force: preview reads use `lib/cms/cachePolicy.ts`
+(`cache: "no-store"` when a token is present, tagged `revalidate: 300`
+otherwise) because an HTTP header is not part of the Next Data Cache key; and
+`--adm-*` chrome remains static admin code only — a draft patch cannot write the
+admin namespace into storefront paint, and merchant `--sf-*` values never reach
+admin chrome ([admin.md](admin.md) §3.0).
+
+**Still deferred / unverified:** navigation and footer draft patches are
+accepted and shape-validated but do not repaint nav chrome in this pass, and the
+preview was verified by contract/unit coverage only — no live admin-iframe
+browser run.
 
 ### 3.1 Primitives — Raw Palette (Do Not Use Directly)
 
@@ -304,7 +328,7 @@ Shell: `Announcement 36px` → `Navbar 64px sticky` → `Hero min-height 540px (
 
 ## 11. Component Inventory
 
-`components/ui/` (`Button`, `IconButton`, `Badge`, `Input`, `Textarea`, `Select`, `ChipInput`, `ColorPicker`, `Slider`, `Toggle`, `ThreeStateControl`, `Dialog`, `SortableList`, `QuantityStepper`, `EmptyState`), `components/sections/` (`HeroSection`; BannerSection, FeaturedProducts, CategoryShowcase, BrandStrip, BlogTeaser with sf-060), `components/commerce/` (`ProductCard`, `Gallery`, `VariantSelector`, `ProductGrid`), `components/shell/` (`CartLineItem`, `MiniCartDrawer`, `PageHeader`). All dumb `props → JSX`; hero `<2KB` JS.
+`components/ui/` (`Button`, `IconButton`, `Badge`, `Card`, `Input`, `Textarea`, `Select`, `Checkbox`, `Radio`, `Slider`, `Toggle`, `Dialog`, `Pill`, `Toast`, `Tooltip`, `QuantityStepper`, `EmptyState`, `LoadingState`, `ErrorState`, `DegradedState`, and the shipped Wave 1 `SegmentedToggle`, `Menu`, `FilterDrawer`, `ShopToolbar`, `GridModeToggle`), `components/sections/` (`HeroSection`, `HeroCarousel`, `ProductCollectionSection`, `CategoryShowcaseSection`, `BrandStripSection`, `TestimonialSection`, `BlogTeaserSection`, `BlogCard`, `SectionRenderer`, `BannerSection`), `components/commerce/` (`ProductCard`, `Gallery`, `VariantSelector`, `ProductGrid`, `OrderSummaryCard`, `Timeline`, `ProductRailIsland`, `PdpTabs`, `AccountTabs`, `CompareTable`, `FilterRail`), `components/shell/` (`Navbar`, `NavLinks`, `AccountMenu`, `MiniCartDrawer`, `CartLineItem`, `PageHeader`, `Footer`, and the shipped `MegaMenu` / `PaginatedRail`). All dumb `props → JSX`; hero `<2KB` JS. The canonical inventory and five-artifact manifests are [components/README.md](../components/README.md) §1/§3.
 
 ---
 

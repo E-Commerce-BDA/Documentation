@@ -3,7 +3,7 @@
 > Scope: `frontend/storefront/components/ui/QuantityStepper.tsx`,
 > `components/ui/EmptyState.tsx`, `lib/commerce/quantity.ts` (the clamp), and the
 > `.sf-qty` / `.sf-empty` blocks in `app/globals.css`.
-> Status: Active | Version 1.0 | Date: 2026-11-01
+> Status: Active | Version 1.1 | Date: 2026-11-27
 > Parent: `components/README.md` §1 · `design-system/storefront.md` §5 (form controls)
 > Implements: sf-051 (`/cart`, `/products/[slug]`, `/products` empty state)
 
@@ -63,42 +63,45 @@ contract + `quantity-stepper-style` for paint, `empty-state` contract +
 
 N/A — no per-type switch exists for either block; they are fixed house faces.
 
-## 6. Reuse/gap map (commerce slice — doc-009, planned)
+## 6. Reuse/gap map (commerce slice — doc-009, final outcome)
 
 The canonical map from the standalone-prototype research (`sf-082`, `sf-083`)
 lives in [shell.md](shell.md) §2–§3. The commerce surfaces (cart, checkout,
 confirmation, products/PDP, account, compare) reuse the same ten pieces; they
-are listed here so a route never rebuilds one locally.
+are listed here so a route never rebuilds one locally. Every row below is now
+backed by shipped code — none is a planned artifact.
 
 | Prototype piece | Existing Next home | Reuse rule |
 |---|---|---|
 | Navbar | `components/shell/Navbar.tsx` + `NavbarMount.tsx` | one chrome on every commerce route |
-| AccountMenu | `NavAccountButton.tsx` + planned Dropdown/Menu | trigger stays; the menu is a new primitive |
+| AccountMenu | `components/shell/NavAccountButton.tsx` + shipped `components/ui/Menu.tsx` | trigger stays; one new menu primitive (no second navbar) |
 | Search overlays | `SearchSheet` / `SearchEditorial` / `SearchPalette` + `searchRegistry` | registry variants, never a page-local overlay |
 | Drawers | `MobileDrawer.tsx`, `MiniCartDrawer.tsx` | cart and filter panels share `.sf-drawer`/`.sf-scrim` |
 | Product card / grid | `ProductCard.tsx`, `ProductGrid.tsx`, `.sf-grid` | one painter across listing, PDP, cart and account |
-| Filter rail | desktop `/products` sidebar | FilterDrawer reuses the same controls on mobile |
-| Sort select | `Select.tsx` (`native`) + `theme.select` | composed by ShopToolbar, not re-implemented |
+| Filter rail | `components/commerce/FilterRail.tsx` in `ListingShell.tsx` | shipped `FilterDrawer.tsx` reuses the same controls on mobile |
+| Sort select | `components/ui/Select.tsx` (`native`) + `theme.select` | composed by shipped `ShopToolbar.tsx`, not re-implemented |
 | Brand strip | `BrandStripSection.tsx` (`sf-marquee`) | unchanged; rail is a separate engine |
 | Compare table | 4-column table + drag surface (`sf-081`) | reused as-is; no paginated comparison |
 | Footer | `Footer.tsx` + `FooterMount.tsx` (`sf-062`) | CMS faces, unchanged |
 
 The nine gaps are indexed in [README.md](README.md) §3 and
 [0.Project-Overview.md](../0.Project-Overview.md) §14; the commerce-owned ones
-are:
+all shipped:
 
-| Artifact | Reuse boundary | State contract |
+| Artifact | Reuse boundary (shipped) | State contract |
 |---|---|---|
-| OrderSummaryCard (sf-088, ⬜ planned) | replaces repeated totals markup on checkout, confirmation and cart; reads the same `lib/commerce/totals.ts` resolver | props only, no state |
-| Timeline (sf-088, ⬜ planned) | replaces the order-status step markup on confirmation and account order detail | props only, no state |
-| ShopToolbar / FilterDrawer / GridModeToggle (sf-087, ⬜ planned) | compose the existing sort select, filter rail and grid on `/products` | pure machines + `useReducer`; parent owns `open`/selection |
+| OrderSummaryCard (sf-088, wired sf-093) | `components/commerce/OrderSummaryCard.tsx` replaces repeated totals markup on cart, checkout and confirmation; reads `lib/order/summaryModel.ts` | props only, no state |
+| Timeline (sf-088, wired sf-093) | `components/commerce/Timeline.tsx` replaces the order-status step markup on confirmation and account order detail; reads `lib/order/timeline.ts` | props only, no state |
+| ShopToolbar / FilterDrawer / GridModeToggle (sf-087, wired sf-092) | `components/ui/{ShopToolbar,FilterDrawer,GridModeToggle}.tsx` compose the existing sort select, `FilterRail` and grid in `app/(shop)/products/_components/ListingShell.tsx` | pure machines in `lib/shop/machine.ts` + `useReducer`; parent owns `open`/selection |
 
-Planned files: `lib/commerce/totals.ts` and `lib/commerce/timeline.ts` (pure
-resolvers), `.sf-ordersummary` / `.sf-timeline` blocks in `app/globals.css`,
-trios `test/lib/commerce/{totals,timeline}.test.ts` +
-`test/components/{order-summary-card,timeline}.test.tsx` +
-`test/components/{order-summary-card,timeline}-style.test.ts`. No new
-`useState`: ADR-ui in
+Shipped files: `lib/order/summaryModel.ts` and `lib/order/timeline.ts` (the pure
+resolvers — the earlier planned resolver names under `lib/commerce/` were never
+created), `.sf-ordersummary` / `.sf-timeline` blocks in `app/globals.css`, and the trios
+`test/lib/composed-models.test.ts`,
+`test/components/composed-components.test.tsx`,
+`test/components/composed-style.test.ts`,
+`test/components/money-chrome.test.tsx`,
+`test/components/money-chrome-style.test.ts`. No new `useState`: ADR-ui in
 [ARCHITECTURE_DECISIONS.md](../ARCHITECTURE_DECISIONS.md).
 
 ---
@@ -107,6 +110,11 @@ trios `test/lib/commerce/{totals,timeline}.test.ts` +
 
 - Clamp + tests: `lib/commerce/quantity.ts` · `test/lib/commerce/quantity.test.ts`
 - Blocks: `components/ui/QuantityStepper.tsx` · `components/ui/EmptyState.tsx`
-- Paint: `app/globals.css` `.sf-qty*`, `.sf-empty*`
+- Wave 1 commerce blocks: `components/commerce/OrderSummaryCard.tsx` +
+  `lib/order/summaryModel.ts`; `components/commerce/Timeline.tsx` +
+  `lib/order/timeline.ts`; tests `test/lib/composed-models.test.ts`,
+  `test/components/composed-components.test.tsx`, `test/components/composed-style.test.ts`,
+  `test/components/money-chrome.test.tsx`, `test/components/money-chrome-style.test.ts`
+- Paint: `app/globals.css` `.sf-qty*`, `.sf-empty*`, `.sf-ordersummary*`, `.sf-timeline*`
 - Consumers: `app/(shop)/products/page.tsx` (empty), `cart/_components/CartView.tsx`,
   `products/[slug]/_components/PurchasePanel.tsx`

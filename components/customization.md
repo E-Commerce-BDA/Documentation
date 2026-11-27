@@ -1,7 +1,7 @@
 # Customization matrix — every admin knob, per surface (living doc)
 
 > Scope: the full knob inventory from dumb primitives to shell blocks to (later) sections — what admin can change, types, defaults, since which task.
-> Status: Active | Version 1.0 | Date: 2026-10-11
+> Status: Active | Version 1.1 | Date: 2026-11-27
 > Parent: `components/README.md` (index + conventions)
 
 ---
@@ -469,56 +469,60 @@ knob→var→default table authoritative.
 
 - **Product card** (variants row/overlay/minimal land with card-type work; palette `cardType` union extends).
 - **CMS `banner` section** (row exists in contracts; the resolver refuses the type until sf-061).
-- **Footer shell** (`footer.*`, cms-svc module shipped — storefront mount lands with sf-062).
+- ~~**Footer shell** (`footer.*`)~~ — **shipped** in sf-062: `components/shell/Footer.tsx` + `app/_components/FooterMount.tsx` reading `lib/cms/footer.ts`.
 - **Toast severity faces** (extend via `data-*` when a second producer arrives; no stacking until a queue design exists).
 
-## Planned rebuild artifacts (doc-009 — docs-first, not yet live)
+## Rebuild artifacts (doc-009 — all shipped)
 
-These are the contracts and artifacts Wave 1 will land; each row becomes live
-knob/artifact rows above when its slice ships. All paint is `--sf-*`
+doc-009 was docs-first; every row below is now live in the storefront (sf-084,
+sf-087, sf-088; wired into routes by sf-089–sf-093). The paths are the actual
+shipped files, which differ from the original planned names — the resolver and
+barrel layout consolidated them. All paint is `--sf-*`
 ([storefront.md](../design-system/storefront.md) §3.0); none reads merchant
 tokens into admin chrome. Each row ships the five artifacts of the storefront
 constitution (model in `lib`, `.sf-*` CSS block, component file, rule doc,
 barrel export) plus the trio tests (contract, resolver-unit, style-contract),
-and adds one row to [README.md](README.md) §1 and one row to
+and added one row to [README.md](README.md) §1 and one row to
 [0.Project-Overview.md](../0.Project-Overview.md) §14 **in the same commit**.
+Final reuse/gap outcome: all rows shipped as new artifacts only where no
+existing doc covered the piece; reused primitives were never re-indexed.
 
-| Artifact | Contract / artifacts planned | State rule |
+| Artifact | Shipped contract / files | State rule |
 |---|---|---|
-| Palette (sf-084, doc-008) | CMS palette schema (bg + on pairs), clamped resolver, `themeToCssVars` emitter of effective `--sf-*` vars with CSS fallback mirrors; `--color-*` aliases for one release | pure resolver, zero React |
-| SegmentedToggle (sf-087) | `resolveSegmented` model (2–3 options, size), `.sf-segmented`, dumb controlled block | props only; `value`/`onChange` parent-owned |
-| Dropdown/Menu (sf-087) | `resolveMenu` model (placement, maxItems, groups), `.sf-menu`, dumb controlled block; Escape/overlay call the parent callback | `open`/`onOpenChange` parent-owned; trap + focus return in the route island |
-| FilterDrawer (sf-087) | mobile-only drawer reusing the desktop filter controls, `filterDrawer` machine, `.sf-filterdrawer` reusing `.sf-drawer`/`.sf-scrim` | pure machine + `useReducer`; `open` parent-owned; side effects in `useRef`/`useEffect` |
-| ShopToolbar (sf-087) | `resolveToolbar` (sort options, result count, region visibility), `.sf-toolbar`, composed dumb row | props only; zero local state |
-| GridModeToggle (sf-087) | `gridMode` machine (2↔1 columns, mobile-only gate), `data-layout` on the shared grid | pure machine + `useReducer`; value parent-owned |
-| PaginatedRail (sf-088) | one draggable, infinite-loop rail with page dots, `rail` machine, `.sf-rail` CSS; reduced motion honored | pure machine + `useReducer`; pointer ids/timers in `useRef`, listeners in `useEffect` |
-| MegaMenu (sf-088) | contracts **2.2.0** `navLinkSchema.groups[]` (≤6 groups, 1–12 items, `columns` 1–4, optional promo), `resolveMegaMenu` model, dumb `MegaMenu`/`MegaMenuColumn` blocks, `.sf-megamenu` CSS | disclosure route-owned; `data-*` state only |
-| OrderSummaryCard (sf-088) | pure totals/discount resolver, dumb `OrderSummaryCard` block, `.sf-ordersummary` CSS | props only, no state |
-| Timeline (sf-088) | pure order-status → steps resolver, dumb `Timeline` block, `.sf-timeline` CSS | props only, no state |
+| Palette (sf-084, doc-008) | ✅ `lib/theme/palette.ts`, `lib/theme/vars.ts`, `lib/cms/themeVars.ts`, `lib/cms/themeSettings.ts`; CSS fallback mirrors in `app/globals.css`; `--color-*` aliases for one release | pure resolver, zero React |
+| SegmentedToggle (sf-087) | ✅ `components/ui/SegmentedToggle.tsx` + `lib/shop/models.ts` (`resolveSegmentedToggle`, 1–6 clamp), `.sf-segmented` | props only; `value`/`onChange` parent-owned |
+| Dropdown/Menu (sf-087) | ✅ `components/ui/Menu.tsx` + `lib/shop/models.ts` (`resolveMenu`), `.sf-menu`; reused by `NavAccountButton.tsx` | `open`/`onOpenChange` parent-owned; trap + focus return in the route island |
+| FilterDrawer (sf-087, wired sf-092) | ✅ `components/ui/FilterDrawer.tsx` + `lib/shop/machine.ts` + `lib/shop/models.ts`, `.sf-filterdrawer` over `.sf-drawer`/`.sf-scrim`; mounted by `ListingShell.tsx` | pure machine + `useReducer`; `open` parent-owned; side effects in `useRef`/`useEffect` |
+| ShopToolbar (sf-087, wired sf-092) | ✅ `components/ui/ShopToolbar.tsx` + the same `lib/shop` models, `.sf-toolbar` | props only; zero local state |
+| GridModeToggle (sf-087, wired sf-092) | ✅ `components/ui/GridModeToggle.tsx` + `lib/shop/machine.ts`, `data-layout` on the shared `.sf-grid` | pure machine + `useReducer`; value parent-owned |
+| PaginatedRail (sf-088, wired sf-091) | ✅ `components/shell/PaginatedRail.tsx` + `lib/sections/railModel.ts` + `lib/sections/machine.ts`, `.sf-rail`; CMS carousel via `components/commerce/ProductRailIsland.tsx` | pure resolver/machine + `useReducer`; pointer ids/timers in `useRef`, listeners in `useEffect` |
+| MegaMenu (sf-088, wired sf-089) | ✅ contracts **2.2.0** `navLinkSchema.groups[]` (≤6 groups, 1–12 items, `columns` 1–4, optional promo); `lib/shell/megaMenuModel.ts` + `lib/shell/resolveNav.ts`, `components/shell/MegaMenu.tsx`, `.sf-megamenu` | disclosure route-owned; `data-*` state only; malformed groups dropped at the CMS seam |
+| OrderSummaryCard (sf-088, wired sf-093) | ✅ `components/commerce/OrderSummaryCard.tsx` + `lib/order/summaryModel.ts`, `.sf-ordersummary` | props only, no state |
+| Timeline (sf-088, wired sf-093) | ✅ `components/commerce/Timeline.tsx` + `lib/order/timeline.ts`, `.sf-timeline` | props only, no state |
 
-### MegaMenu navigation groups/columns (planned — contracts 2.2.0)
+### MegaMenu navigation groups/columns (shipped — contracts 2.2.0)
 
-| Variable | Description | Values | Default | Paints via |
+| Variable | Description | Values | Default | Paints via / outcome |
 |---|---|---|---|---|
-| `navigation.links[].groups[]` | To give a navbar link a mega-menu panel (≤6 groups) | `megaMenuGroupSchema[]` | absent (plain link) | resolver → `MegaMenuColumn` |
-| `groups[].title` | To head one column group | string ≤64 | — (required) | `.sf-megamenu__title` |
-| `groups[].items[]` | To list the links in a group (1–12) | `{ label ≤64, href, description? ≤200, badge? }` | — (required) | `.sf-megamenu__link` |
-| `groups[].columns` | To hint how many columns a group's items occupy | 1–4 | resolver clamp by breakpoint | `--megamenu-cols` (never a raw admin count) |
-| `groups[].promo` | To add a feature tile at the foot of a group | `{ title ≤80, href, description? ≤200, imageUrl?, badge? }` | absent | `.sf-megamenu__promo`; wordmark when no image |
-| `groups[].items[].href` | To point a menu link somewhere | internal path or http(s) only (`navHrefSchema`) | — (required) | anchor href; other schemes refused by the contract |
-| `navigation.megamenu.showImages` | To show or hide promo artwork | boolean | theme | `data-images` hook |
+| `navigation.links[].groups[]` | To give a navbar link a mega-menu panel (≤6 groups) | `MegaMenuGroup[]` | absent (plain link) | shipped: `lib/shell/navSettings.ts` `NavLink.groups` → `lib/shell/megaMenuModel.ts` → `components/shell/MegaMenu.tsx` |
+| `groups[].title` | To head one column group | string ≤64 | — (required) | shipped: `.sf-megamenu__title` |
+| `groups[].items[]` | To list the links in a group (1–12) | `{ label ≤64, href, description? ≤200, badge? }` | — (required) | shipped: `.sf-megamenu__item` + `.sf-megamenu__desc`; `badge` is accepted but not painted yet (deferred) |
+| `groups[].columns` | To hint how many columns a group's items occupy | 1–4 | resolver clamp by breakpoint | shipped: `data-columns` → `--mega-columns` (clamped; never a raw admin count) |
+| `groups[].promo` | To add a feature tile at the foot of a group | `{ title ≤80, href, description? ≤200, imageUrl?, badge? }` | absent | shipped: `.sf-megamenu__promo`; `imageUrl` accepted but not painted (wordmark fallback deferred) |
+| `groups[].items[].href` | To point a menu link somewhere | internal path or http(s) only (`navHrefSchema`) | — (required) | shipped: `normalizeNavGroups` refuses other schemes before a link reaches the DOM |
+| `navigation.megamenu.showImages` | To show or hide promo artwork | boolean | theme | ⏸ deferred — no `data-images` hook in the shipped painter |
 
-### PaginatedRail drag/pagination/motion (planned)
+### PaginatedRail drag/pagination/motion (shipped)
 
-| Variable | Description | Values | Default | Paints via |
+| Variable | Description | Values | Default | Paints via / outcome |
 |---|---|---|---|---|
-| `rail.pageSize` | To set how many cells one page advances | 1–8 | visible-cell count | reducer `PAGE_SIZE` |
-| `rail.loop` | To wrap at the ends with cloned cells | boolean | true | clones (`aria-hidden`), `data-loop` |
-| `rail.showDots` | To show the page indicator row | boolean | true | `.sf-rail__dots`, `aria-current` |
-| `rail.showArrows` | To show prev/next controls | boolean | true | buttons dispatch `PREV`/`NEXT` |
-| `rail.speed` | To set snap travel time | 0–600 ms | 240 | `--rail-duration` (CSS var, never inline) |
-| `rail.dragThresholdPx` | To separate a click from a drag | 4–24 px | 8 | reducer guard + click suppression |
-| `prefers-reduced-motion` | Static face: no travel, clones hidden, dots remain | media query | system | `data-motion="off"` + `@media` |
+| `pageSize` | Resolver option: how many cells one page spans | 1–12 (clamped) | 4 | shipped: `lib/sections/railModel.ts` `resolveRail`; not a CMS knob |
+| `loop` | To wrap at the ends | boolean | true | shipped: `data-loop` + `railStep` index wrap; **no cloned DOM cells** |
+| `showDots` | Page indicator row | boolean | true when `pageCount > 1` | shipped: `.sf-rail__dots` with `role="tab"` + `aria-selected` (no `data-*` toggle) |
+| `showArrows` | Prev/next controls | boolean | true when `pageCount > 1` | shipped: `IconButton` calls `onIndexChange` via `railStep` |
+| `speed` | Snap travel time | CSS duration | 160 ms | shipped as themeable `--rail-duration`; not a CMS knob |
+| `dragThresholdPx` | Travel that separates a drag from a press | px | 48 (fixed constant) | shipped: `DRAG_THRESHOLD_PX` in `components/shell/PaginatedRail.tsx`; pointer origin in `useRef` |
+| `prefers-reduced-motion` | Static face: no travel, dots remain | media query | system | shipped: `data-motion="off"` + `@media` |
 
 ### No-new-`useState` rule (every rebuilt island)
 
@@ -537,3 +541,8 @@ with a documented reason.
 Decision: [ARCHITECTURE_DECISIONS.md](../ARCHITECTURE_DECISIONS.md) ADR-ui ·
 admin ownership: [admin.md](../design-system/admin.md) §3.0 · index:
 [README.md](README.md) §3 · scope shape: [sections.md](sections.md) §7.
+
+**Final outcome:** the rebuild artifacts above are live; the remaining stubs are
+product-card palette variants, `banner` (sf-061), toast severity faces, and the
+MegaMenu badge/image hooks plus `navigation.megamenu.showImages` named deferred
+above. No new `useState` was introduced by the rebuild.
