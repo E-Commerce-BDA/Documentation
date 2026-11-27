@@ -31,6 +31,21 @@
 | Shell purpose + mount rule + search overlays + cart blocks | `shell-cart.md` | ✅ done (§4 live: PageHeader, CartLineItem, MiniCartDrawer, CartProvider; §5 live: Footer + FooterMount — sf-062) |
 | Footer (+ FooterMount) | `shell-cart.md` §5 | ✅ done (sf-062 — CMS document, minimal-face fallback, shared gutter) |
 | BlogCard / PostBlocks / PageBlocks / CmsPage | `sections.md` §1.7 + `shell-cart.md` §3 + route tests (`test/components/{post,page}-blocks.test.tsx`, `test/app/(shop)/{blog,legal}.test.tsx`) | ✅ done (sf-063 — grouped, no standalone doc yet per §3 rule 4) |
+| Palette (`--sf-*` resolver + emitter, legacy aliases) | `../design-system/storefront.md` §3.0 + `customization.md` | ⬜ planned (sf-084) |
+| Mega-menu (CMS groups/columns) | `navigation.md` *(to create)* | ⬜ planned |
+| Filter drawer (mobile, reuses desktop filters) | `navigation.md` *(to create)* | ⬜ planned |
+| Grid mode (`data-layout` grid/carousel) | `product.md` *(to append)* | ⬜ planned |
+| Paginated rail (draggable, looping, paged) | `sections.md` *(to append)* | ⬜ planned |
+| Order summary (totals resolver + block) | `commerce.md` *(to append)* | ⬜ planned |
+| Timeline (status → steps resolver + block) | `commerce.md` *(to append)* | ⬜ planned |
+
+**Reuse/gap map:** the rebuild reuses Button, Pill, Badge, Input, ProductCard,
+HeroSection and the shell-cart blocks unchanged (same model / `.sf-*` CSS / doc /
+barrel). The gaps the seven planned rows fill are palette emission, mega-menu
+columns, mobile filter disclosure, collection grid mode, the one shared
+paginated rail, order-summary totals and the order-status timeline. No second
+implementation of an existing block: a row is a new artifact only where no
+current doc covers it.
 
 Small related components share one grouped doc (see §3 rule 4); Button,
 Icons, and Tooltip earned standalone docs as system pioneers (first model,
@@ -50,3 +65,7 @@ first wrapper, first zero-JS positioning).
 5. **Template** — standalone docs follow the `button.md` 5-section shape
    (look per type / customizable fields / scopes / global rules /
    apply-to-all); grouped docs repeat that shape per component inside.
+6. **No new `useState`** — rebuilt islands keep state in pure machines and
+   `useReducer`, with parent-owned props for `open`/selection. A `useState`
+   addition needs an ADR with a documented reason (`customization.md` §No-new-
+   `useState` rule; ADR-tokens).

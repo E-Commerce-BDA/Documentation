@@ -44,6 +44,34 @@ Rules: single family (Outfit) for scan speed; numbers use `600` not body `400`; 
 
 ## 3. Color System — Oceanic Blue Admin (Which Color Where)
 
+### 3.0 Token ownership — `--adm-*` chrome, never merchant tokens (doc-008)
+
+Admin chrome paints only through static `--adm-*` tokens. Merchant theme
+settings (`--sf-*`) never reach the shell, sidebar, topbar, tables or forms:
+a merchant cannot re-skin the tool used to run the store. Ocean `#0077B6`
+appears in admin **only** for links, focus/active indicators and charts —
+primary actions stay ink + white. The exception is the preview surface:
+`?preview=1` mounts the real storefront `HeroSection`, which consumes `--sf-*`
+inside an admin frame that keeps `--adm-*`. One renderer for preview and
+production is what makes WYSIWYG true instead of a second implementation.
+
+| Token | Default | Admin use |
+|---|---|---|
+| `--adm-page-bg` | `#F5FAFC` | canvas, group heads, table headers |
+| `--adm-surface` | `#FFFFFF` | cards, panels, tables, forms |
+| `--adm-ink` | `#0A2540` | text and primary-action background |
+| `--adm-border` | `#DCE8EE` | every 1px border |
+| `--adm-muted` | `#5B7286` | labels, hints |
+| `--adm-link` / `--adm-focus` | `#0077B6` | links, active indicator, focus border |
+| `--adm-focus-halo` | `#0077B633` | 3px focus ring |
+| `--adm-action-bg` / `--adm-action-fg` | `#0A2540` / `#FFFFFF` | primary buttons — never ocean |
+| `--adm-chart-line` / `--adm-chart-area` | `#0077B6` / `#E6F7FB` | charts (the only ocean data paint) |
+| `--adm-success/-warning/-error` | `#0E9F6E` / `#F79009` / `#D92D20` | status badges (global faces, with AA-locked foregrounds) |
+
+The legacy `--color-*` names below are admin-local aliases; merchant `--sf-*`
+values are never aliased into admin chrome. See ADR-tokens and
+[storefront.md](storefront.md) §3.0 for the full layer model.
+
 Admin shares storefront neutrals/status but surfaces are `#F5FAFC` page + white cards, and **actions are monochrome ink**. Every token has hex + usage.
 
 ### 3.1 Primitives
@@ -71,7 +99,7 @@ Admin shares storefront neutrals/status but surfaces are `#F5FAFC` page + white 
 | `--focus-ring` | `#0077B633` | Input focus `0 0 0 3px`, `slide-row.active` ring | — |
 | Status | `#0E9F6E`/`#F79009`/`#D92D20` | Badges `active/completed` · `pending/partial/low stock` · `failed/expired` with bg/border trios | — |
 
-**Admin vs storefront delta:** Storefront primary CTA = ocean `#0077B6`; **admin primary button = ink `#0A2540` + white** (black & white policy). Ocean in admin is limited to links, focus borders, active-nav, and charts. `imageBg #CAF0F8` appears only inside hero previews, not as an admin surface. Storefront hero is a gradient; admin stays flat mist.
+**Admin vs storefront delta:** Storefront primary CTA = ocean `#0077B6`; **admin primary button = ink `#0A2540` + white** (black & white policy). Ocean in admin is limited to links, focus borders, active-nav, and charts. `imageBg #CAF0F8` appears only inside hero previews, not as an admin surface. Storefront hero is a gradient; admin stays flat mist. All chrome names are `--adm-*` (§3.0); merchant `--sf-*` values are read only by the storefront-rendered preview surface, never by admin chrome.
 
 ### 3.3 Component Tokens — Semantic → Admin Component
 
@@ -132,7 +160,7 @@ Base `4px`: `4 · 8 · 12 · 16 · 20 · 24 · 32`. Controls grid `320px 1fr gap
 
 ### 7.3 Forms — inputs per §3.3; validation inline `.err 12px #D92D20`; 409 conflicts as blocking banners.
 
-### 7.4 CTAs Editor — `hero.slides[].ctas` + `banner.ctas`: `z.array(ctaSchema).max(3)`, per-CTA `text(1-50)/link(internal)/bg/textColor/borderColor/borderWidth 0-4/borderRadius 0-24 (default 8)`; live preview `?preview=1` renders storefront `HeroSection` (ocean primary `#0077B6`) — admin chrome stays ink.
+### 7.4 CTAs Editor — `hero.slides[].ctas` + `banner.ctas`: `z.array(ctaSchema).max(3)`, per-CTA `text(1-50)/link(internal)/bg/textColor/borderColor/borderWidth 0-4/borderRadius 0-24 (default 8)`; live preview `?preview=1` renders the storefront `HeroSection` surface (ocean primary `--sf-brand`) inside the admin frame — chrome stays `--adm-*` ink and never reads merchant tokens.
 
 ### 7.5 Media Picker — modal grid, usage filter `product/section/blog`, multi-select, S3 upload.
 
@@ -150,16 +178,16 @@ Base `4px`: `4 · 8 · 12 · 16 · 20 · 24 · 32`. Controls grid `320px 1fr gap
 
 ```css
 @import "tailwindcss";
-:root { --color-page-bg:#F5FAFC; --color-card:#FFFFFF; --color-ink:#0A2540; --color-accent:#0077B6; --border:#DCE8EE; }
+:root { --adm-page-bg:#F5FAFC; --adm-surface:#FFFFFF; --adm-ink:#0A2540; --adm-link:#0077B6; --adm-border:#DCE8EE; /* …§3.0 — no merchant tokens */ }
 @theme inline {
-  --color-card: var(--color-card);
-  --color-muted: #5B7286;
+  --color-card: var(--adm-surface);
+  --color-muted: var(--adm-muted);
   --radius-card: 12px;
   --font-sans: var(--font-outfit);
 }
 ```
 
-`layout.tsx`: `Outfit 400-700` (+ Geist Mono for ids). **Admin primary = `bg #0A2540 text #FFFFFF`.**
+`layout.tsx`: `Outfit 400-700` (+ Geist Mono for ids). **Admin primary = `--adm-action-bg #0A2540` / `--adm-action-fg #FFFFFF`.**
 
 ---
 

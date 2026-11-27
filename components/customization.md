@@ -471,3 +471,36 @@ knob→var→default table authoritative.
 - **CMS `banner` section** (row exists in contracts; the resolver refuses the type until sf-061).
 - **Footer shell** (`footer.*`, cms-svc module shipped — storefront mount lands with sf-062).
 - **Toast severity faces** (extend via `data-*` when a second producer arrives; no stacking until a queue design exists).
+
+## Planned rebuild artifacts (doc-008 — docs-first, not yet live)
+
+These are the contracts and artifacts the storefront rebuild foundation will
+land; each row becomes live knob/artifact rows above when its slice ships. All
+paint is `--sf-*` ([storefront.md](../design-system/storefront.md) §3.0); none
+reads merchant tokens into admin chrome. Each row ships the five artifacts of
+the storefront constitution (model in `lib`, `.sf-*` CSS block, component file,
+rule doc, barrel export) plus the trio tests (contract, resolver-unit,
+style-contract).
+
+| Artifact | Contract / artifacts planned | State rule |
+|---|---|---|
+| Palette | CMS palette schema (bg + on pairs), clamped resolver, `themeToCssVars` emitter of effective `--sf-*` vars with CSS fallback mirrors; `--color-*` aliases for one release | pure resolver, zero React |
+| Mega-menu | CMS nav group/column schema, dumb `MegaMenu` / `MegaMenuColumn` blocks, `.sf-megamenu` CSS + style contract | disclosure owned by the route; `data-*` state only |
+| Filter drawer | mobile-only drawer reusing the desktop filter controls, `filterDrawer` machine, `.sf-filterdrawer` CSS | pure machine + `useReducer`; `open` parent-owned |
+| Grid mode | `data-layout="grid\|carousel"` resolver for product collections, column/gap knobs | pure resolver, no local state |
+| Paginated rail | one draggable, infinite-loop rail with page indicators, `rail` machine, `.sf-rail` CSS; reduced motion honored | pure machine + `useReducer`; pointer/drag dispatches into it |
+| Order summary | pure totals/discount resolver, dumb `OrderSummary` block, `.sf-ordersummary` CSS | props only, no state |
+| Timeline | pure order-status → steps resolver, dumb `Timeline` block, `.sf-timeline` CSS | props only, no state |
+
+### No-new-`useState` rule (every rebuilt island)
+
+Rebuilt islands add **no new `useState`**: state transitions live in pure
+machines and `useReducer`, with the parent owning `open`/selection values via
+props. Reason: a reducer is a pure, trio-testable transition table and keeps the
+controlled-only rule intact; an island-local `useState` is a second, untested
+state source. Rejected: ad-hoc `useState` per island — an exception needs an ADR
+with a documented reason.
+
+Decision: [ARCHITECTURE_DECISIONS.md](../ARCHITECTURE_DECISIONS.md) ADR-tokens ·
+admin ownership: [admin.md](../design-system/admin.md) §3.0 · index:
+[README.md](README.md).

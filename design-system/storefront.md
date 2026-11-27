@@ -46,7 +46,72 @@ Rules: `headline` always `Fraunces 700` at `clamp 28-48px`; `eyebrow` always `12
 
 ## 3. Color System — Oceanic Blue (Detailed: Which Color Where)
 
-All colors are emitted as `:root` vars (`--color-*`, ocean ramp) and consumed via Tailwind `@theme inline`. Never use a primitive hex directly in `components/` — use a semantic token.
+### 3.0 Layered token architecture (doc-008; ADR-tokens)
+
+Paint resolves through the six layers of ADR-tokens. Only the semantic
+storefront layer is merchant-editable, and only at global scope.
+
+| Layer | Namespace | Editable by | Rule |
+|---|---|---|---|
+| Primitives | `--sf-p-*` (code only) | nobody | raw ramp samples; never emitted from CMS, never a hex literal in `components/` |
+| Semantic storefront | `--sf-*` | admin palette editor (global, validated + clamped) | meaning, not pixels on a named component |
+| Derived component | `--sf-<component>-*` | resolver only | `--sf-button-bg` ← `--sf-brand`, etc.; not a direct admin knob |
+| Locked state | `--sf-focus*`, `--sf-disabled*`, `--sf-*-fg`/`--sf-*-on`, shell | nobody directly | AA-clamped, global-only; never scoped to a section or product |
+| Scoped overrides | inline `--sf-section-bg` / `--sf-section-fg`; product/slide flat props | per section or product | bg+fg pair and that section's own content knobs only |
+| Admin chrome | `--adm-*` | admin code only | static, never merchant tokens ([admin.md](admin.md) §3.0) |
+
+**Exact defaults (theme decision report — canonical `--sf-*` names):**
+
+| Token | Default | Role | Editability |
+|---|---|---|---|
+| `--sf-brand` | `#0077B6` | primary fill, links, focus base | global, clamped |
+| `--sf-brand-strong` | `#023E8A` | hover / active | global, clamped |
+| `--sf-brand-on` | `#FFFFFF` | text on brand | AA-locked |
+| `--sf-brand-soft` | `#E6F7FB` | wash / placeholder | global, clamped |
+| `--sf-ink` | `#0A2540` | primary text | global, clamped |
+| `--sf-ink-muted` | `#5B7286` | secondary text (4.7:1 on white) | AA-locked |
+| `--sf-ink-border` | `#DCE8EE` | 1px borders, dividers | global, clamped |
+| `--sf-surface` | `#FFFFFF` | card surface | global, clamped |
+| `--sf-surface-page` | `#F5FAFC` | page wash | global, clamped |
+| `--sf-surface-raised` | `#FFFFFF` | raised panel (equals surface in v1) | derived |
+| `--sf-surface-image` | `#CAF0F8` | image placeholder | global, clamped |
+| `--sf-sale` | `#FF6B4A` | sale fill — uses ink text; white fails (2.8:1) | global, clamped |
+| `--sf-sale-strong` | `#B9381C` | sale hover | global, clamped |
+| `--sf-sale-soft` | `#FFEDE6` | sale wash | global, clamped |
+| `--sf-sale-on` | `#0A2540` | text on sale | AA-locked |
+| `--sf-success` | `#0E9F6E` | success fill | global, clamped |
+| `--sf-success-fg` | `#067647` | success text on soft | AA-locked |
+| `--sf-warning` | `#F79009` | warning fill | global, clamped |
+| `--sf-warning-fg` | `#B54708` | warning text on soft | AA-locked |
+| `--sf-error` | `#D92D20` | error fill | global, clamped |
+| `--sf-error-fg` | `#B42318` | error text on soft | AA-locked |
+| `--sf-focus` | `#0077B6` | focus outline | global, locked |
+| `--sf-focus-halo` | `#0077B633` | focus halo (3px) | global, locked |
+| `--sf-disabled-bg` | `#E6ECF1` | disabled fill | global, locked |
+| `--sf-disabled-fg` | `#0A2540` | disabled ink | global, locked |
+| `--sf-disabled-border` | `#DCE8EE` | disabled border | global, locked |
+
+**Inheritance formula** (highest to lowest; one default source — `lib/<domain>/` resolvers):
+
+```text
+product/slide flat prop
+  → component theme (theme.button.*, theme.input.*, …)
+  → section settings (bg + fg pair, plus that section's own content knobs)
+  → global palette (--sf-* semantic tokens)
+  → builtin (DEFAULT_* in lib)
+```
+
+Reset deletes keys so the layer below shows through; it never writes `null`.
+Section overrides accept only the bg+fg pair and that section's own content
+knobs; status faces, focus, disabled and shell stay global. Every value is
+validated and clamped before emission; focus/disabled/status-foreground faces
+are AA-locked so style-contract tests assert them in one place.
+
+**Legacy aliases:** the `--color-*` names in §3.1–§3.3 remain aliases of the
+canonical `--sf-*` names for one release (sf-084). New work uses `--sf-*` only;
+no component-level `??` fallback may freeze the theme out of the var chain.
+
+All colors are emitted as `:root` vars and consumed via Tailwind `@theme inline`. Never use a primitive hex directly in `components/` — use a semantic token.
 
 ### 3.1 Primitives — Raw Palette (Do Not Use Directly)
 
@@ -211,10 +276,10 @@ Shell: `Announcement 36px` → `Navbar 64px sticky` → `Hero min-height 540px (
 
 ```css
 @import "tailwindcss";
-:root { --color-accent:#0077B6; --color-button-bg:#0077B6; --color-ink:#0A2540; --color-section-bg:#F5FAFC; /* …§3.2 */ }
+:root { --sf-brand:#0077B6; --sf-ink:#0A2540; --sf-surface-page:#F5FAFC; /* …§3.0 */ --color-accent:var(--sf-brand); /* legacy alias, one release */ }
 @theme inline {
-  --color-primary: var(--color-accent);
-  --color-card: #FFFFFF;
+  --color-primary: var(--sf-brand);
+  --color-card: var(--sf-surface);
   --radius-button: 8px;
   --font-sans: var(--font-outfit);
   --font-display: var(--font-fraunces);

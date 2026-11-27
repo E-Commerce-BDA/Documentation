@@ -107,3 +107,43 @@ script implements it; a job may call the same command later without editing it.
 **Choice:** An import has exactly four repairable rejection reasons; a deterministic failure throws to roll back the `processed_events` claim and dead-letters immediately. `translateError` lets a service map a domain failure to a terminal reason.
 **Why:** Redelivery cannot change a dangling reference or a conflicting sku, so burning the 31-second ladder on it is pure waste; a thrown exception is the only thing that rolls back the claim.
 **Rules out:** retrying human-repairable failures; returning instead of throwing inside a claimed transaction.
+
+## ADR-tokens — Six-layer paint architecture, admin chrome separate
+**Choice:** Paint resolves in six layers — code-only primitives, admin-editable semantic storefront tokens (`--sf-*`), resolver-derived component tokens, AA-locked state tokens, scoped section/product overrides, and static admin chrome tokens (`--adm-*`). Merchant config writes only validated global palette pairs; reset deletes a key (inherits) and never writes `null`; status/focus/disabled/shell faces stay global; the admin tool never consumes merchant tokens.
+**Why:** Admin must restyle the storefront without a code deploy, but merchant input cannot be trusted as CSS: numbers need declared clamps, fg/on pairs need AA contrast floors, names and values need sanitizing so a setting cannot inject arbitrary declarations, and the editor's preview must be the same surface production renders or WYSIWYG is a lie. A separate locked layer gives style-contract tests one place to assert those floors, and lets `--adm-*` chrome stay ink-based while the preview underneath shows ocean.
+**Rules out:** raw admin-authored CSS variables; `null`-as-reset; merchant re-skin of `--adm-*` chrome; per-section override of status/focus/disabled/shell faces.
+
+### Implementation (doc-008)
+| Layer | Namespace | Who may write it | What it holds |
+|---|---|---|---|
+| 1. Primitives | `--sf-p-*` (code only) | code, never CMS | raw ramp samples; no hex literal in `components/` |
+| 2. Semantic storefront | `--sf-*` | admin palette editor, global scope, validated + clamped | meaning: brand / ink / surface / status-bg pairs |
+| 3. Derived component | `--sf-<component>-*` | resolver only | e.g. `--sf-button-bg` ← `--sf-brand`; not a direct admin knob |
+| 4. Locked state | `--sf-focus*`, `--sf-disabled*`, `--sf-*-fg`/`--sf-*-on`, shell | resolver only, AA-clamped, global only | status foregrounds, focus + halo, disabled face, shell chrome |
+| 5. Scoped overrides | inline `--sf-section-bg` / `--sf-section-fg`; product/slide flat props | per section or product | bg+fg pair and that section's own content knobs only |
+| 6. Admin chrome | `--adm-*` | admin code only | static tool chrome; never merchant config |
+
+Inheritance, highest to lowest (one default source — `lib/<domain>/` resolvers):
+
+```text
+product/slide flat prop
+  → component theme (theme.button.*, theme.input.*, …)
+  → section settings (bg + fg pair, plus that section's own content knobs)
+  → global palette (--sf-* semantic tokens)
+  → builtin (DEFAULT_* in lib)
+```
+
+`reset` deletes keys so the layer below shows through; it never writes `null`.
+A section or product override accepts only the bg+fg pair and its own content
+knobs — status faces, focus, disabled and shell tokens are global and cannot be
+scoped. Legacy `--color-*` names remain aliases of `--sf-*` for one release
+(sf-084); new code uses `--sf-*` only and no component-level `??` fallback may
+bypass the var chain.
+
+Rebuilt islands add **no new `useState`**: state lives in pure machines and
+`useReducer` only. Reason: a reducer is a pure, testable transition table and
+keeps the controlled-only rule intact; a local `useState` is a second, untested
+state source. Rejected: ad-hoc `useState` per island.
+
+Exact names/defaults: `design-system/storefront.md` §3.0. Admin separation:
+`design-system/admin.md` §3.0. Planned artifacts: `components/customization.md`.
