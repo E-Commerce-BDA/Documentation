@@ -472,35 +472,68 @@ knob→var→default table authoritative.
 - **Footer shell** (`footer.*`, cms-svc module shipped — storefront mount lands with sf-062).
 - **Toast severity faces** (extend via `data-*` when a second producer arrives; no stacking until a queue design exists).
 
-## Planned rebuild artifacts (doc-008 — docs-first, not yet live)
+## Planned rebuild artifacts (doc-009 — docs-first, not yet live)
 
-These are the contracts and artifacts the storefront rebuild foundation will
-land; each row becomes live knob/artifact rows above when its slice ships. All
-paint is `--sf-*` ([storefront.md](../design-system/storefront.md) §3.0); none
-reads merchant tokens into admin chrome. Each row ships the five artifacts of
-the storefront constitution (model in `lib`, `.sf-*` CSS block, component file,
-rule doc, barrel export) plus the trio tests (contract, resolver-unit,
-style-contract).
+These are the contracts and artifacts Wave 1 will land; each row becomes live
+knob/artifact rows above when its slice ships. All paint is `--sf-*`
+([storefront.md](../design-system/storefront.md) §3.0); none reads merchant
+tokens into admin chrome. Each row ships the five artifacts of the storefront
+constitution (model in `lib`, `.sf-*` CSS block, component file, rule doc,
+barrel export) plus the trio tests (contract, resolver-unit, style-contract),
+and adds one row to [README.md](README.md) §1 and one row to
+[0.Project-Overview.md](../0.Project-Overview.md) §14 **in the same commit**.
 
 | Artifact | Contract / artifacts planned | State rule |
 |---|---|---|
-| Palette | CMS palette schema (bg + on pairs), clamped resolver, `themeToCssVars` emitter of effective `--sf-*` vars with CSS fallback mirrors; `--color-*` aliases for one release | pure resolver, zero React |
-| Mega-menu | CMS nav group/column schema, dumb `MegaMenu` / `MegaMenuColumn` blocks, `.sf-megamenu` CSS + style contract | disclosure owned by the route; `data-*` state only |
-| Filter drawer | mobile-only drawer reusing the desktop filter controls, `filterDrawer` machine, `.sf-filterdrawer` CSS | pure machine + `useReducer`; `open` parent-owned |
-| Grid mode | `data-layout="grid\|carousel"` resolver for product collections, column/gap knobs | pure resolver, no local state |
-| Paginated rail | one draggable, infinite-loop rail with page indicators, `rail` machine, `.sf-rail` CSS; reduced motion honored | pure machine + `useReducer`; pointer/drag dispatches into it |
-| Order summary | pure totals/discount resolver, dumb `OrderSummary` block, `.sf-ordersummary` CSS | props only, no state |
-| Timeline | pure order-status → steps resolver, dumb `Timeline` block, `.sf-timeline` CSS | props only, no state |
+| Palette (sf-084, doc-008) | CMS palette schema (bg + on pairs), clamped resolver, `themeToCssVars` emitter of effective `--sf-*` vars with CSS fallback mirrors; `--color-*` aliases for one release | pure resolver, zero React |
+| SegmentedToggle (sf-087) | `resolveSegmented` model (2–3 options, size), `.sf-segmented`, dumb controlled block | props only; `value`/`onChange` parent-owned |
+| Dropdown/Menu (sf-087) | `resolveMenu` model (placement, maxItems, groups), `.sf-menu`, dumb controlled block; Escape/overlay call the parent callback | `open`/`onOpenChange` parent-owned; trap + focus return in the route island |
+| FilterDrawer (sf-087) | mobile-only drawer reusing the desktop filter controls, `filterDrawer` machine, `.sf-filterdrawer` reusing `.sf-drawer`/`.sf-scrim` | pure machine + `useReducer`; `open` parent-owned; side effects in `useRef`/`useEffect` |
+| ShopToolbar (sf-087) | `resolveToolbar` (sort options, result count, region visibility), `.sf-toolbar`, composed dumb row | props only; zero local state |
+| GridModeToggle (sf-087) | `gridMode` machine (2↔1 columns, mobile-only gate), `data-layout` on the shared grid | pure machine + `useReducer`; value parent-owned |
+| PaginatedRail (sf-088) | one draggable, infinite-loop rail with page dots, `rail` machine, `.sf-rail` CSS; reduced motion honored | pure machine + `useReducer`; pointer ids/timers in `useRef`, listeners in `useEffect` |
+| MegaMenu (sf-088) | contracts **2.2.0** `navLinkSchema.groups[]` (≤6 groups, 1–12 items, `columns` 1–4, optional promo), `resolveMegaMenu` model, dumb `MegaMenu`/`MegaMenuColumn` blocks, `.sf-megamenu` CSS | disclosure route-owned; `data-*` state only |
+| OrderSummaryCard (sf-088) | pure totals/discount resolver, dumb `OrderSummaryCard` block, `.sf-ordersummary` CSS | props only, no state |
+| Timeline (sf-088) | pure order-status → steps resolver, dumb `Timeline` block, `.sf-timeline` CSS | props only, no state |
+
+### MegaMenu navigation groups/columns (planned — contracts 2.2.0)
+
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `navigation.links[].groups[]` | To give a navbar link a mega-menu panel (≤6 groups) | `megaMenuGroupSchema[]` | absent (plain link) | resolver → `MegaMenuColumn` |
+| `groups[].title` | To head one column group | string ≤64 | — (required) | `.sf-megamenu__title` |
+| `groups[].items[]` | To list the links in a group (1–12) | `{ label ≤64, href, description? ≤200, badge? }` | — (required) | `.sf-megamenu__link` |
+| `groups[].columns` | To hint how many columns a group's items occupy | 1–4 | resolver clamp by breakpoint | `--megamenu-cols` (never a raw admin count) |
+| `groups[].promo` | To add a feature tile at the foot of a group | `{ title ≤80, href, description? ≤200, imageUrl?, badge? }` | absent | `.sf-megamenu__promo`; wordmark when no image |
+| `groups[].items[].href` | To point a menu link somewhere | internal path or http(s) only (`navHrefSchema`) | — (required) | anchor href; other schemes refused by the contract |
+| `navigation.megamenu.showImages` | To show or hide promo artwork | boolean | theme | `data-images` hook |
+
+### PaginatedRail drag/pagination/motion (planned)
+
+| Variable | Description | Values | Default | Paints via |
+|---|---|---|---|---|
+| `rail.pageSize` | To set how many cells one page advances | 1–8 | visible-cell count | reducer `PAGE_SIZE` |
+| `rail.loop` | To wrap at the ends with cloned cells | boolean | true | clones (`aria-hidden`), `data-loop` |
+| `rail.showDots` | To show the page indicator row | boolean | true | `.sf-rail__dots`, `aria-current` |
+| `rail.showArrows` | To show prev/next controls | boolean | true | buttons dispatch `PREV`/`NEXT` |
+| `rail.speed` | To set snap travel time | 0–600 ms | 240 | `--rail-duration` (CSS var, never inline) |
+| `rail.dragThresholdPx` | To separate a click from a drag | 4–24 px | 8 | reducer guard + click suppression |
+| `prefers-reduced-motion` | Static face: no travel, clones hidden, dots remain | media query | system | `data-motion="off"` + `@media` |
 
 ### No-new-`useState` rule (every rebuilt island)
 
 Rebuilt islands add **no new `useState`**: state transitions live in pure
 machines and `useReducer`, with the parent owning `open`/selection values via
-props. Reason: a reducer is a pure, trio-testable transition table and keeps the
-controlled-only rule intact; an island-local `useState` is a second, untested
-state source. Rejected: ad-hoc `useState` per island — an exception needs an ADR
+props. Timers, pointer ids, abort controllers and listeners live in `useRef`
+and are attached/cleaned in `useEffect` — side effects are not state. Reason: a
+reducer is a pure, trio-testable transition table and keeps the controlled-only
+rule intact; an island-local `useState` is a second, untested state source, and
+a set of local boolean flags (`isOpen`, `isDragging`, `isLoading`) silently
+admits impossible combinations — the prototype's failure mode. Rejected:
+ad-hoc `useState` per island, side-effect handles stored in state, and local
+boolean flags used as a substitute for a machine. An exception needs an ADR
 with a documented reason.
 
-Decision: [ARCHITECTURE_DECISIONS.md](../ARCHITECTURE_DECISIONS.md) ADR-tokens ·
+Decision: [ARCHITECTURE_DECISIONS.md](../ARCHITECTURE_DECISIONS.md) ADR-ui ·
 admin ownership: [admin.md](../design-system/admin.md) §3.0 · index:
-[README.md](README.md).
+[README.md](README.md) §3 · scope shape: [sections.md](sections.md) §7.

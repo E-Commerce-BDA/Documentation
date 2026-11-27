@@ -141,9 +141,35 @@ scoped. Legacy `--color-*` names remain aliases of `--sf-*` for one release
 bypass the var chain.
 
 Rebuilt islands add **no new `useState`**: state lives in pure machines and
-`useReducer` only. Reason: a reducer is a pure, testable transition table and
-keeps the controlled-only rule intact; a local `useState` is a second, untested
-state source. Rejected: ad-hoc `useState` per island.
+`useReducer` only, with timers/pointer ids/listeners in `useRef` + `useEffect`.
+Reason: a reducer is a pure, testable transition table and keeps the
+controlled-only rule intact; a local `useState` is a second, untested state
+source. Rejected: ad-hoc `useState` per island and local boolean flags — full
+rule in ADR-ui below.
 
 Exact names/defaults: `design-system/storefront.md` §3.0. Admin separation:
 `design-system/admin.md` §3.0. Planned artifacts: `components/customization.md`.
+
+## ADR-ui — Pure machines use `useReducer`; side effects are not state
+**Choice:** Every rebuilt island keeps behavioural state in a pure transition
+machine driven by `useReducer`, with `open`/selection owned by the parent as
+controlled props. Timers, pointer ids, abort controllers and listeners live in
+`useRef` and are attached and removed in `useEffect`.
+**Why:** A reducer is a pure, trio-testable transition table, so a state is
+reachable only through a named event and the controlled-only rule stays intact.
+A side-effect handle stored in state adds renders without adding meaning, and a
+set of local boolean flags (`isOpen`, `isDragging`, `isLoading`) silently admits
+impossible combinations — exactly how the prototype produced undefined states.
+**Rules out:** new `useState` in rebuilt islands; local boolean flags as a
+substitute for a machine; side-effect handles in state; generic machine
+factories and XState (only the named states and events are ported).
+**Does not rule out:** the `Select` custom-branch disclosure (sf-033,
+AGENTS.md §3 rule 2) — the browser owns a native select's popup internally, so
+the drop-in replacement may own that one disclosure when the parent does not;
+the *value* stays controlled either way. An island needs no ADR for the
+`useRef`/`useEffect` side-effect seam; any `useState` addition still needs one
+with a documented reason at the site (AGENTS.md §5).
+
+Indexed manifests: `components/README.md` §3 ·
+`components/customization.md` §No-new-`useState` rule ·
+`components/sections.md` §7.2 (rail machine).

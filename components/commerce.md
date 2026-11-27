@@ -63,6 +63,46 @@ contract + `quantity-stepper-style` for paint, `empty-state` contract +
 
 N/A — no per-type switch exists for either block; they are fixed house faces.
 
+## 6. Reuse/gap map (commerce slice — doc-009, planned)
+
+The canonical map from the standalone-prototype research (`sf-082`, `sf-083`)
+lives in [shell.md](shell.md) §2–§3. The commerce surfaces (cart, checkout,
+confirmation, products/PDP, account, compare) reuse the same ten pieces; they
+are listed here so a route never rebuilds one locally.
+
+| Prototype piece | Existing Next home | Reuse rule |
+|---|---|---|
+| Navbar | `components/shell/Navbar.tsx` + `NavbarMount.tsx` | one chrome on every commerce route |
+| AccountMenu | `NavAccountButton.tsx` + planned Dropdown/Menu | trigger stays; the menu is a new primitive |
+| Search overlays | `SearchSheet` / `SearchEditorial` / `SearchPalette` + `searchRegistry` | registry variants, never a page-local overlay |
+| Drawers | `MobileDrawer.tsx`, `MiniCartDrawer.tsx` | cart and filter panels share `.sf-drawer`/`.sf-scrim` |
+| Product card / grid | `ProductCard.tsx`, `ProductGrid.tsx`, `.sf-grid` | one painter across listing, PDP, cart and account |
+| Filter rail | desktop `/products` sidebar | FilterDrawer reuses the same controls on mobile |
+| Sort select | `Select.tsx` (`native`) + `theme.select` | composed by ShopToolbar, not re-implemented |
+| Brand strip | `BrandStripSection.tsx` (`sf-marquee`) | unchanged; rail is a separate engine |
+| Compare table | 4-column table + drag surface (`sf-081`) | reused as-is; no paginated comparison |
+| Footer | `Footer.tsx` + `FooterMount.tsx` (`sf-062`) | CMS faces, unchanged |
+
+The nine gaps are indexed in [README.md](README.md) §3 and
+[0.Project-Overview.md](../0.Project-Overview.md) §14; the commerce-owned ones
+are:
+
+| Artifact | Reuse boundary | State contract |
+|---|---|---|
+| OrderSummaryCard (sf-088, ⬜ planned) | replaces repeated totals markup on checkout, confirmation and cart; reads the same `lib/commerce/totals.ts` resolver | props only, no state |
+| Timeline (sf-088, ⬜ planned) | replaces the order-status step markup on confirmation and account order detail | props only, no state |
+| ShopToolbar / FilterDrawer / GridModeToggle (sf-087, ⬜ planned) | compose the existing sort select, filter rail and grid on `/products` | pure machines + `useReducer`; parent owns `open`/selection |
+
+Planned files: `lib/commerce/totals.ts` and `lib/commerce/timeline.ts` (pure
+resolvers), `.sf-ordersummary` / `.sf-timeline` blocks in `app/globals.css`,
+trios `test/lib/commerce/{totals,timeline}.test.ts` +
+`test/components/{order-summary-card,timeline}.test.tsx` +
+`test/components/{order-summary-card,timeline}-style.test.ts`. No new
+`useState`: ADR-ui in
+[ARCHITECTURE_DECISIONS.md](../ARCHITECTURE_DECISIONS.md).
+
+---
+
 ## Appendix — file references
 
 - Clamp + tests: `lib/commerce/quantity.ts` · `test/lib/commerce/quantity.test.ts`

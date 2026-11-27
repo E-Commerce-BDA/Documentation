@@ -30,24 +30,29 @@
 | BannerSection | `sections.md` §0 (refused in the resolver) | ⬜ sf-061 |
 | Shell purpose + mount rule + search overlays + cart blocks | `shell-cart.md` | ✅ done (§4 live: PageHeader, CartLineItem, MiniCartDrawer, CartProvider; §5 live: Footer + FooterMount — sf-062) |
 | Footer (+ FooterMount) | `shell-cart.md` §5 | ✅ done (sf-062 — CMS document, minimal-face fallback, shared gutter) |
-| BlogCard / PostBlocks / PageBlocks / CmsPage | `sections.md` §1.7 + `shell-cart.md` §3 + route tests (`test/components/{post,page}-blocks.test.tsx`, `test/app/(shop)/{blog,legal}.test.tsx`) | ✅ done (sf-063 — grouped, no standalone doc yet per §3 rule 4) |
-| Palette (`--sf-*` resolver + emitter, legacy aliases) | `../design-system/storefront.md` §3.0 + `customization.md` | ⬜ planned (sf-084) |
-| Mega-menu (CMS groups/columns) | `navigation.md` *(to create)* | ⬜ planned |
-| Filter drawer (mobile, reuses desktop filters) | `navigation.md` *(to create)* | ⬜ planned |
-| Grid mode (`data-layout` grid/carousel) | `product.md` *(to append)* | ⬜ planned |
-| Paginated rail (draggable, looping, paged) | `sections.md` *(to append)* | ⬜ planned |
-| Order summary (totals resolver + block) | `commerce.md` *(to append)* | ⬜ planned |
-| Timeline (status → steps resolver + block) | `commerce.md` *(to append)* | ⬜ planned |
+| BlogCard / PostBlocks / PageBlocks / CmsPage | `sections.md` §1.7 + `shell-cart.md` §3 + route tests (`test/components/{post,page}-blocks.test.tsx`, `test/app/(shop)/{blog,legal}.test.tsx`) | ✅ done (sf-063 — grouped, no standalone doc yet per §2 rule 4) |
+| Palette (`--sf-*` resolver + emitter, legacy aliases) | `../design-system/storefront.md` §3.0 + `customization.md` | ⬜ planned (sf-084, doc-008) |
+| SegmentedToggle (controlled 2–3 way selector) | `form-controls.md` *(to create)* | ⬜ planned (sf-087, doc-009) |
+| Dropdown/Menu (controlled disclosure + keyboard trap) | `navigation.md` *(to create)* + `shell.md` §2 | ⬜ planned (sf-087, doc-009) |
+| FilterDrawer (mobile, reuses desktop filters) | `navigation.md` *(to create)* + `shell.md` §2 | ⬜ planned (sf-087, doc-009) |
+| ShopToolbar (sort + filter + grid row) | `navigation.md` *(to create)* + `shell.md` §2 | ⬜ planned (sf-087, doc-009) |
+| GridModeToggle (`data-layout` 2↔1, mobile-only) | `product.md` *(to append)* | ⬜ planned (sf-087, doc-009) |
+| PaginatedRail (drag, loop, dots, reduced motion) | `sections.md` §7.2 | ⬜ planned (sf-088, doc-009) |
+| MegaMenu (contracts 2.2.0 nav groups/columns) | `navigation.md` *(to create)* + `sections.md` §7.1 | ⬜ planned (sf-088, doc-009) |
+| OrderSummaryCard (totals resolver + block) | `commerce.md` §6 | ⬜ planned (sf-088, doc-009) |
+| Timeline (status → steps resolver + block) | `commerce.md` §6 | ⬜ planned (sf-088, doc-009) |
 
-**Reuse/gap map:** the rebuild reuses Button, Pill, Badge, Input, ProductCard,
-HeroSection and the shell-cart blocks unchanged (same model / `.sf-*` CSS / doc /
-barrel). The gaps the seven planned rows fill are palette emission, mega-menu
-columns, mobile filter disclosure, collection grid mode, the one shared
-paginated rail, order-summary totals and the order-status timeline. No second
-implementation of an existing block: a row is a new artifact only where no
-current doc covers it.
+**Reuse/gap map:** the canonical map from the standalone-prototype research
+(`sf-082`, `sf-083`) lives in [shell.md](shell.md) §2–§3 and is mirrored in
+[commerce.md](commerce.md) §6. The rebuild reuses Navbar, AccountMenu, search
+overlays, drawers, ProductCard/ProductGrid, the filter rail, the sort `Select`,
+BrandStrip, the compare table and Footer unchanged (same model / `.sf-*` CSS /
+doc / barrel). The nine doc-009 rows above are new artifacts only where no
+current doc covers the piece; Palette (sf-084) is the earlier doc-008 foundation
+gap. No second implementation of an existing block: if a prototype piece is
+already covered, it is reused, not re-indexed.
 
-Small related components share one grouped doc (see §3 rule 4); Button,
+Small related components share one grouped doc (see §2 rule 4); Button,
 Icons, and Tooltip earned standalone docs as system pioneers (first model,
 first wrapper, first zero-JS positioning).
 
@@ -66,6 +71,113 @@ first wrapper, first zero-JS positioning).
    (look per type / customizable fields / scopes / global rules /
    apply-to-all); grouped docs repeat that shape per component inside.
 6. **No new `useState`** — rebuilt islands keep state in pure machines and
-   `useReducer`, with parent-owned props for `open`/selection. A `useState`
-   addition needs an ADR with a documented reason (`customization.md` §No-new-
-   `useState` rule; ADR-tokens).
+   `useReducer`, with parent-owned props for `open`/selection; timers, pointer
+   ids and listeners live in `useRef`/`useEffect`. A `useState` addition needs an
+   ADR with a documented reason ([customization.md](customization.md)
+   §No-new-`useState` rule;
+   [ARCHITECTURE_DECISIONS.md](../ARCHITECTURE_DECISIONS.md) ADR-ui).
+
+---
+
+## 3. Wave 1 artifact entries (5-section shape)
+
+Docs-first (doc-009): none of the source paths below exists yet — every entry
+is ⬜ **planned**, each backed by the §1 row and the
+[§14 row](../0.Project-Overview.md) recorded in the same commit. Each owner doc
+will use the [button.md](button.md) 5-section shape (§1 look per type, §2
+customizable fields, §3 scopes, §4 global rules, §5 apply-to-all); the five rows
+in each entry are the shipped-artifact manifest of the storefront constitution
+(AGENTS.md §3 rule 7): **lib model · CSS block · state contract · tests · owner
+doc**. Paint is `--sf-*` only
+([storefront.md](../design-system/storefront.md) §3.0); state reaches CSS only
+through `data-*`.
+
+### SegmentedToggle (sf-087 · planned)
+
+| Section | Contract |
+|---|---|
+| lib model | `lib/ui/segmented.ts` — pure `resolveSegmented({ options, value, size })` → `SegmentedModel` with `data-selected`; defaults only here |
+| CSS block | `.sf-segmented` / `.sf-segmented__option` in `app/globals.css`; fills via `--sf-segmented-*`, focus ring fixed |
+| state contract | controlled: `value` + `onChange` parent-owned; no `useState`, no hidden selection inside the block |
+| tests | `test/lib/ui/segmented.test.ts` · `test/components/segmented-toggle.test.tsx` · `test/components/segmented-toggle-style.test.ts` |
+| owner doc | `components/form-controls.md` *(to create)* — 5-section shape; barrel `components/ui/index.ts` |
+
+### Dropdown/Menu (sf-087 · planned)
+
+| Section | Contract |
+|---|---|
+| lib model | `lib/ui/menu.ts` — pure `resolveMenu({ placement, items, maxItems })`; item/link shape resolved once |
+| CSS block | `.sf-menu` / `.sf-menu__item` in `app/globals.css`; `--sf-menu-*` over house tokens; `data-open` hook |
+| state contract | `open` / `onOpenChange` parent-owned; Escape and overlay **call** the parent callback (no state exit); trap + focus return in the route island |
+| tests | `test/lib/ui/menu.test.ts` · `test/components/menu.test.tsx` · `test/components/menu-style.test.ts` |
+| owner doc | `components/navigation.md` *(to create)* — 5-section shape; barrel `components/ui/index.ts` |
+
+### FilterDrawer (sf-087 · planned)
+
+| Section | Contract |
+|---|---|
+| lib model | `lib/shop/filterDrawer.ts` — pure `filterDrawer` machine (`closed`/`open`, `OPEN`/`CLOSE`/`TOGGLE`/`RESET`/`APPLY`) + resolver for the reused desktop filter controls |
+| CSS block | `.sf-filterdrawer` in `app/globals.css`, reusing `.sf-drawer` / `.sf-scrim` — no second drawer face |
+| state contract | pure machine + `useReducer` in the route island; `open` parent-owned; pointer/focus handles in `useRef`, listeners in `useEffect` |
+| tests | `test/lib/shop/filterDrawer.test.ts` · `test/components/filter-drawer.test.tsx` · `test/components/filter-drawer-style.test.ts` |
+| owner doc | `components/navigation.md` *(to create)* + [shell.md](shell.md) §2 (reuse) |
+
+### ShopToolbar (sf-087 · planned)
+
+| Section | Contract |
+|---|---|
+| lib model | `lib/shop/toolbar.ts` — pure `resolveToolbar({ sortOptions, count, regions })`; composes the existing `Select`, FilterDrawer trigger and GridModeToggle |
+| CSS block | `.sf-toolbar` in `app/globals.css`; row geometry fixed here, paint via `--sf-*`; one shared gutter with the grid |
+| state contract | composed dumb: every value (`sort`, `onSortChange`, `filterOpen`, `onOpenFilters`, `layout`, `onLayoutChange`, `count`) is a prop; zero local state |
+| tests | `test/lib/shop/toolbar.test.ts` · `test/components/shop-toolbar.test.tsx` · `test/components/shop-toolbar-style.test.ts` |
+| owner doc | `components/navigation.md` *(to create)* + [shell.md](shell.md) §2 |
+
+### GridModeToggle (sf-087 · planned)
+
+| Section | Contract |
+|---|---|
+| lib model | `lib/shop/gridMode.ts` — pure `gridMode` machine (`2` ↔ `1`) with a mobile-only gate; never writes `data-layout` itself |
+| CSS block | `.sf-gridmode` in `app/globals.css`; `data-layout` on the shared `.sf-grid` (no duplicated grid rules) |
+| state contract | pure machine + `useReducer`; value parent-owned; desktop keeps its theme grid |
+| tests | `test/lib/shop/gridMode.test.ts` · `test/components/grid-mode-toggle.test.tsx` · `test/components/grid-mode-toggle-style.test.ts` |
+| owner doc | `components/product.md` §grid mode *(to append)* |
+
+### PaginatedRail (sf-088 · planned)
+
+| Section | Contract |
+|---|---|
+| lib model | `lib/sections/rail.ts` — pure `rail` machine (`idle`/`dragging`/`settling`; `POINTER_*`, `NEXT`, `PREV`, `SNAP_DONE`, `WRAP`) + page/dot resolver |
+| CSS block | `.sf-rail` in `app/globals.css`; `--rail-*` over house tokens, one `@keyframes`, static reduced-motion face |
+| state contract | pure machine + `useReducer`; drag id and timers in `useRef`, listeners/cleanup in `useEffect`; no local boolean flags |
+| tests | `test/lib/sections/rail.test.ts` · `test/components/paginated-rail.test.tsx` · `test/components/paginated-rail-style.test.ts` |
+| owner doc | [sections.md](sections.md) §7.2 + [customization.md](customization.md) §PaginatedRail drag/pagination/motion |
+
+### MegaMenu (sf-088 · planned)
+
+| Section | Contract |
+|---|---|
+| lib model | `lib/nav/megaMenu.ts` — pure `resolveMegaMenu` over contracts 2.2.0 `navLinkSchema.groups[]` (≤6 groups, 1–12 items, `columns` 1–4, optional promo); clamps, no JSX |
+| CSS block | `.sf-megamenu` / `.sf-megamenu__*` in `app/globals.css`; `--megamenu-cols` is clamped, never a raw admin column count |
+| state contract | dumb `MegaMenu` / `MegaMenuColumn`; disclosure owned by the route; `data-open` state only; keyboard parity fixed |
+| tests | `test/lib/nav/megaMenu.test.ts` · `test/components/mega-menu.test.tsx` · `test/components/mega-menu-style.test.ts` |
+| owner doc | `components/navigation.md` *(to create)* + [sections.md](sections.md) §7.1 |
+
+### OrderSummaryCard (sf-088 · planned)
+
+| Section | Contract |
+|---|---|
+| lib model | `lib/commerce/totals.ts` — pure subtotal/discount/shipping/tax/total resolver over contracts `moneySchema`; defaults live only here |
+| CSS block | `.sf-ordersummary` in `app/globals.css`; `--sf-ordersummary-*` over house tokens, no hardcoded paint |
+| state contract | props only; no state, no fetch — the route resolves the order/cart totals and passes them in |
+| tests | `test/lib/commerce/totals.test.ts` · `test/components/order-summary-card.test.tsx` · `test/components/order-summary-card-style.test.ts` |
+| owner doc | [commerce.md](commerce.md) §6 |
+
+### Timeline (sf-088 · planned)
+
+| Section | Contract |
+|---|---|
+| lib model | `lib/commerce/timeline.ts` — pure order-status → steps resolver (completed/current/upcoming), one default source |
+| CSS block | `.sf-timeline` in `app/globals.css`; `--sf-timeline-*` over house tokens; `data-step` drives every state face |
+| state contract | props only; no state — the status comes from the order view model |
+| tests | `test/lib/commerce/timeline.test.ts` · `test/components/timeline.test.tsx` · `test/components/timeline-style.test.ts` |
+| owner doc | [commerce.md](commerce.md) §6 |

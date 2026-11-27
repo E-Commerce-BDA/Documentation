@@ -252,10 +252,83 @@ contracts first, because a knob the contract cannot express cannot be audited.
 
 ---
 
+## 7. Planned Wave 1 artifacts (doc-009 — docs-first, not yet live)
+
+Two Wave 1 artifacts compose inside this vocabulary. Both are ⬜ planned: their
+five-artifact manifests are indexed in
+[README.md](README.md) §3 and [0.Project-Overview.md](../0.Project-Overview.md)
+§14 in the same commit. Neither exists in `components/sections/` yet.
+
+### 7.1 MegaMenu — navigation groups/columns (sf-088, planned)
+
+Source of truth: `@ecom/contracts` **2.2.0** `navigation.ts`. Both `category`
+and `custom` entries of `navLinkSchema` gain optional `groups[]` (≤6). Each
+`megaMenuGroupSchema` is `.strict()`: `title` (≤64), `items[]` (1–12) of
+`{ label ≤64, href, description? ≤200, badge? }`, `columns?` 1–4 (a layout hint
+only — the renderer clamps it to its breakpoint budget), and an optional
+`promo` `{ title ≤80, href, description? ≤200, imageUrl?, badge? }`.
+`navHrefSchema` accepts only an internal path or an http(s) URL, so a CMS panel
+cannot become an injection surface.
+
+| State / knob | Look / contract |
+|---|---|
+| group with `columns: 1..4` | `.sf-megamenu__grid` with `--megamenu-cols`, clamped per breakpoint; never a raw admin column count |
+| item with `description` / `badge` | secondary line / Pill beside the label; absent means the element is absent, not empty |
+| group with `promo` | `.sf-megamenu__promo` tile at the foot; image optional, wordmark fallback when absent |
+| disclosure open | route-owned `data-open` on trigger and panel; the dumb `MegaMenu` never sets it |
+| hover / focus-visible | shared ring; `:focus-within` shows what `:hover` shows — keyboard parity is fixed |
+| reduced motion | panel appears without slide/fade; navigation survives |
+
+Planned model: `lib/nav/megaMenu.ts` (pure resolver — groups → clamped columns,
+link validity, promo defaults; no JSX, no fetch). Planned blocks:
+`components/nav/MegaMenu.tsx` + `MegaMenuColumn.tsx` (props → JSX). Paint: the
+`.sf-megamenu*` block in `app/globals.css`, every fill through `--sf-*` with a
+token fallback. Trio: `test/lib/nav/megaMenu.test.ts` (clamps, max groups/items,
+href refusal), `test/components/mega-menu.test.tsx` (linkage, disclosure props,
+keyboard), `test/components/mega-menu-style.test.ts` (paint-through-vars). Owner
+docs: `components/navigation.md` *(to create)* +
+[shell.md](shell.md) §2 (reuses Navbar/NavLinks/AccountMenu) and
+[customization.md](customization.md) §MegaMenu navigation groups/columns.
+
+### 7.2 PaginatedRail — drag/pagination/motion (sf-088, planned)
+
+One rail engine replaces per-section carousel copies: New this week, category
+showcase, testimonials and the prototype's compare-table drag surface all mount
+the same island. The contract comes from the standalone-prototype research
+(`sf-083`): pointer/touch drag with click suppression, `scroll-snap`, cloned
+edge cards for an infinite wrap, prev/next controls and pagination dots.
+
+| State / knob | Look / contract |
+|---|---|
+| `idle` | native scroll-snap row; dots read `page n of m` with `aria-current` on the active one |
+| `dragging` | `data-drag="true"`; pointer id held in a `useRef`, never in state; clicks past the threshold suppressed |
+| `settling` | snap to the nearest cell; projection computed by the reducer, not read back from the DOM |
+| wrap | cloned leading/trailing cells (`aria-hidden="true"`); index wraps without a visible jump |
+| reduced motion | travel off, clones hidden, dots remain — navigation survives the motion cut |
+| disabled edge (non-loop mode) | explicit solid face, never `opacity` |
+
+State contract: pure machine `lib/sections/rail.ts` (planned) — states
+`idle | dragging | settling`; events `POINTER_DOWN`, `POINTER_MOVE`,
+`POINTER_UP`, `NEXT`, `PREV`, `SNAP_DONE`, `WRAP`. The island drives transitions
+with `useReducer`, keeps pointer ids and timers in `useRef`, and attaches and
+cleans listeners in `useEffect`. No `useState`, no local boolean flags
+(ADR-ui in [ARCHITECTURE_DECISIONS.md](../ARCHITECTURE_DECISIONS.md)).
+Paint: the `.sf-rail*` block, `--rail-*` vars with token fallbacks, one
+`@keyframes`, and a static face. Trio: `test/lib/sections/rail.test.ts` (every
+transition, wrap, clamp, reduced-motion event),
+`test/components/paginated-rail.test.tsx` (dots, clone linkage, keyboard
+parity, drag suppression), `test/components/paginated-rail-style.test.ts`
+(paint-through-vars, no motion on the reduced face, clone geometry). Owner doc:
+this §7.2 + [customization.md](customization.md) §PaginatedRail
+drag/pagination/motion.
+
+---
+
 ## Appendix — file references
 
 - Contracts: `@ecom/contracts` 1.12.0 `section.ts`, `section-content.ts`,
-  `section-settings.ts`, `section-catalog.ts`, `footer.ts`
+  `section-settings.ts`, `section-catalog.ts`, `footer.ts`; planned 2.2.0
+  `navigation.ts` mega-menu groups (§7.1 — docs-first, not yet pinned)
 - Models: `lib/sections/viewModels.ts` · Resolver:
   `lib/sections/resolveSections.ts` · `test/lib/sections/resolveSections.test.ts`
 - Helpers: `lib/sections/hero.ts` · `lib/sections/marquee.ts` ·
